@@ -4,8 +4,18 @@ import { Balance } from './components/Balance.js';
 
 export class Router {
   private container: HTMLElement | null;
+  
+  // Una sola instancia de las vistas para evitar re-renderizados innecesarios y mantener su estado interno
+  private homeView: MainWindow;
+  private balanceView: Balance;
+
+  private activeScreen: string | null = null;
 
   constructor(containerId: string) {
+    
+    this.homeView = new MainWindow();
+    this.balanceView = new Balance();
+    
     this.container = document.getElementById(containerId);
 
     if (!this.container) {
@@ -13,30 +23,32 @@ export class Router {
       return;
     }
 
-    // TS ya sabe gracias a la interfaz del Store que 'state.currentScreen' es un string específico
-    storeGlobal.suscribe((state) => this.evalRoute(state.currentScreen));
+    storeGlobal.subscribe((state) => this.evalRoute(state.currentScreen));
 
     this.evalRoute(storeGlobal.get().currentScreen);
   }
 
-  // Especificamos que 'screen' debe ser estrictamente uno de los tipos válidos del AppState
   private evalRoute(screen: "home" | "facturas" | "configuracion" | "balance"): void {
-    // Protección por si el constructor falló al encontrar el contenedor
     if (!this.container) return;
 
-    // Limpiamos el contenedor antes de inyectar la nueva vista
+    if (screen === this.activeScreen) {
+      console.log(`Router: La pantalla "${screen}" ya está activa, evitando re-render innecesario.`);
+      return; 
+    }
+
+    // Limpiamos el contenedor
     this.container.innerHTML = "";
 
-    // Decidimos qué componente instanciar y renderizar
+    this.activeScreen = screen
+
+    // Evaluamos la ruta y renderizamos la vista correspondiente
     switch (screen) {
       case "home": {
-        const home = new MainWindow();
-        home.render(this.container);
+        this.homeView.render(this.container);
         break;
       }
       case "balance": {
-        const balance = new Balance();
-        balance.render(this.container);
+        this.balanceView.render(this.container);
         break;
       }
       default:

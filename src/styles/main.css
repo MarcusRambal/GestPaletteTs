@@ -7,7 +7,7 @@
 
 body {
   font-family: 'Verdana', Geneva, Tahoma, sans-serif;
-  -webkit-font-smoothing: antialiased; /* Suaviza los bordes de las letras en Electron (Chromium) */
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: rgba(230, 230, 250, 0.4);
 

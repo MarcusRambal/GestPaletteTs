@@ -1,10 +1,13 @@
+import { Product } from "../../types/types.js";
+
 
 export interface AppState {
   currentScreen: "home" | "balance" | "configuracion"; // Puedes limitar las pantallas válidas aquí
+  productsCatalog: Product[];
   facturasCargadas: any[]; 
 }
 
-// 2. Definimos el tipo para las funciones suscriptoras
+// Definimos el tipo para las funciones suscriptoras
 type SubscriberCallback = (state: AppState) => void;
 
 class Store {
@@ -23,6 +26,11 @@ class Store {
 
   // Modificar el estado usando Partial para permitir cambios parciales
   update(nuevoFragmento: Partial<AppState>): void {
+    //Evitar spam si la pantalla no cambia al boton
+    if (nuevoFragmento.currentScreen && nuevoFragmento.currentScreen === this.state.currentScreen) {
+      console.log(`Store: La pantalla "${nuevoFragmento.currentScreen}" ya está activa, evitando actualización innecesaria.`);
+    return; 
+  }
     this.state = { ...this.state, ...nuevoFragmento };
     
     // Notificar a cada componente suscrito
@@ -30,7 +38,7 @@ class Store {
   }
 
   // Registrar un componente para escuchar los cambios
-  suscribe(callback: SubscriberCallback): void {
+  subscribe(callback: SubscriberCallback): void {
     this.subscribers.push(callback);
   }
 }
@@ -38,5 +46,6 @@ class Store {
 // Instancia única para toda la aplicación (Singleton)
 export const storeGlobal = new Store({
   currentScreen: "home",
+  productsCatalog: [],
   facturasCargadas: []
 });

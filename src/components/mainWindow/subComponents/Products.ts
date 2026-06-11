@@ -1,14 +1,23 @@
-
+import { storeGlobal } from '../../../store/Store.js';
 import type { Product } from '../../../../types/types.js';
 
 
 export class Products {
-  // 2. Declaramos la propiedad de la clase con su tipo de elemento del DOM
   private productList: HTMLDivElement | null = null;
-  private allProducts: Product[] = [];
 
   constructor() {
     this.productList = null;
+
+    storeGlobal.subscribe((state) => {
+      
+      if (!this.productList || !document.body.contains(this.productList)) {
+      console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
+      return;
+    }
+
+      this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
+    })
+      
   }
 
   render(subContainer: HTMLElement): void {
@@ -32,23 +41,26 @@ export class Products {
     this.loadProducts();
   }
 
-  async loadProducts(): Promise<void> {
+  private async loadProducts(): Promise<void> {
    
     if (!this.productList) return;
 
     try {
-      // 3. Forzamos a que la respuesta de la API de Electron use el tipado de nuestra interfaz
-      // Nota: Si usaste 'window.electronAPI', cámbialo por tu API 'paletteAPI' extendida en el preload
+      if(storeGlobal.get().productsCatalog.length > 0  ){
+      //  console.log("Productos ya cargados en el store, evitando llamada a API.");
+
+        this.productList.innerHTML = ""; 
+        const state = storeGlobal.get();
+        this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
+        return;
+      }
       const products: Product[] = await window.paletteAPI.Products.getProducts();
-      console.log("Productos obtenidos:", products);
-      this.allProducts = products.filter(p => p.active === 1); // Guardamos todos los productos para futuras operaciones (filtros, búsquedas, etc.)
-
-      this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
-
-      const initialProducts = this.allProducts.slice(0, 20);
-        this.renderList(initialProducts);
-     
       
+     // console.log("Productos obtenidos:", products);
+
+      this.productList.innerHTML = ""; 
+
+      storeGlobal.update({ productsCatalog: products });
 
     } catch (error) {
       console.error("Error al cargar productos:", error);
@@ -56,7 +68,7 @@ export class Products {
     }
   }
 
-  renderList (products: Product[]): void {
+  private renderList (products: Product[], searchQuery: string, selectedCategory: string): void {
     if (!this.productList) return;
 
     this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
@@ -94,7 +106,7 @@ export class Products {
   }
 
   selectProduct(product: Product): void {
-    console.log("Producto seleccionado:", product);
+   // console.log("Producto seleccionado:", product);
     // Aquí más adelante podrás disparar un storeGlobal.update(...) para mandarlo al carrito
   }
 }
