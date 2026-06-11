@@ -1,0 +1,46 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #eaeaea;
+  height: 100vh;
+}
+
+.layout-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.navBar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+}
+
+.navBar button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #eaeaea;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.navBar button:hover {
+  background: #e94560;
+}
+
+#main-screen {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
