@@ -5,6 +5,7 @@ import type { Product } from '../../../../types/types.js';
 export class Products {
   // 2. Declaramos la propiedad de la clase con su tipo de elemento del DOM
   private productList: HTMLDivElement | null = null;
+  private allProducts: Product[] = [];
 
   constructor() {
     this.productList = null;
@@ -12,21 +13,27 @@ export class Products {
 
   render(subContainer: HTMLElement): void {
     subContainer.innerHTML = `
-      <div class="products-list">
-        <div class="product-list" id="product-list">
-          <p class="loading">Cargando productos...</p>
+
+    <div class = "products-container">
+        <div class="products-header"> 
+          <h3>Productos</h3>
         </div>
+
+      
+          <div class="products-list" id="products-list">
+            <p class="loading">Cargando productos...</p>
+          </div>
       </div>
     `;
 
     // Asignamos el contenedor casteándolo correctamente
-    this.productList = subContainer.querySelector('#product-list') as HTMLDivElement | null;
+    this.productList = subContainer.querySelector('#products-list') as HTMLDivElement | null;
     
     this.loadProducts();
   }
 
   async loadProducts(): Promise<void> {
-    // Si por algún motivo no se encontró el contenedor en el DOM, salimos para evitar romper el flujo
+   
     if (!this.productList) return;
 
     try {
@@ -34,16 +41,32 @@ export class Products {
       // Nota: Si usaste 'window.electronAPI', cámbialo por tu API 'paletteAPI' extendida en el preload
       const products: Product[] = await window.paletteAPI.Products.getProducts();
       console.log("Productos obtenidos:", products);
+      this.allProducts = products.filter(p => p.active === 1); // Guardamos todos los productos para futuras operaciones (filtros, búsquedas, etc.)
 
       this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
 
-      const activeProducts = products.filter(p => p.active === 1);
-      if (activeProducts.length === 0) {
+      const initialProducts = this.allProducts.slice(0, 20);
+        this.renderList(initialProducts);
+     
+      
+
+    } catch (error) {
+      console.error("Error al cargar productos:", error);
+      this.productList.innerHTML = `<p class="error-text">Error al cargar productos.</p>`;
+    }
+  }
+
+  renderList (products: Product[]): void {
+    if (!this.productList) return;
+
+    this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
+
+     if (products.length === 0) {
         this.productList.innerHTML = `<p class="null-text">No hay productos registrados.</p>`;
         return;
       }
 
-      activeProducts.forEach(product => {
+      products.forEach(product => {
         // Creamos el contenedor de la tarjeta especificando que es un HTMLDivElement
         const productCard = document.createElement('div') as HTMLDivElement;
         
@@ -68,10 +91,6 @@ export class Products {
         this.productList!.appendChild(productCard);
       });
 
-    } catch (error) {
-      console.error("Error al cargar productos:", error);
-      this.productList.innerHTML = `<p class="error-text">Error al cargar productos.</p>`;
-    }
   }
 
   selectProduct(product: Product): void {
