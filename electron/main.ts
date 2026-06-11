@@ -51,8 +51,8 @@ function registerIPCHandlers(): void {
 
 function createWindow(): void {
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1366,
+    height: 768,
     show: false,
     backgroundColor: '#ffffff',
     webPreferences: {

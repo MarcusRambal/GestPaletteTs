@@ -1,0 +1,121 @@
+.products-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background-color: #dbdbf9;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    max-width: 600px;
+    max-height: 650px;
+}
+
+.products-container .products-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    opacity: 0.8;
+    margin-left:10px;
+}
+
+
+.products-container .products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto; 
+    padding-right: 12px;
+}
+
+/* 1. Definimos el ancho de la barra */
+.products-container .products-list::-webkit-scrollbar {
+  width: 8px; /* Una barra delgada y elegante */
+}
+
+/* 2. El fondo de la barra (el carril por donde se mueve) */
+.products-container .products-list::-webkit-scrollbar-track {
+  background: transparent; /* Transparente para que no ensucie el fondo lavanda */
+}
+
+/* 3. La manija (el botón que se arrastra) */
+.products-container .products-list::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.2); /* Un gris oscuro muy suave con opacidad */
+  border-radius: 4px; /* Bordes redondeados */
+}
+
+/* 4. Efecto cuando el usuario pasa el mouse sobre la barra */
+.products-container .products-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.4); /* Se oscurece un poco para dar feedback */
+}
+
+
+
+.products-container .products-list .product-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  background-color: white ;
+  border: 1px solid #e2e8f0;
+}
+
+.products-container .products-list .product-card .product-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Colores específicos para cada categoría */
+
+
+/* Colores conos */
+.products-container .products-list .product-card.cat-conos {
+  border-left: 4px solid #ffb703; /* Amarillo/Naranja para conos */
+  
+}
+
+.products-container .products-list .product-card.cat-conos .product-name {
+    font-weight: bold;
+}
+
+.products-container .products-list .product-card.cat-conos .product-info .product-category-name {
+  color: #ffb703; /* Mismo color para el nombre de la categoría */
+  font-weight: lighter;
+  opacity: 0.8;
+}
+
+
+ /* Colores helados */
+.products-container .products-list .product-card.cat-helados {
+    border-left: 4px solid #8ecae6; /* Azul para helados */
+}
+
+.products-container .products-list .product-card.cat-helados .product-name {
+    font-weight: bold;
+}
+
+.products-container .products-list .product-card.cat-helados .product-info .product-category-name {
+    color: #8ecae6; /* Mismo color para el nombre de la categoría */
+    font-weight: lighter;
+    opacity: 0.8;
+}
+
+
+/* Colores paletas */
+
+.products-container .products-list .product-card.cat-paletas {
+    border-left: 4px solid #6c3495; 
+}
+
+.products-container .products-list .product-card.cat-paletas .product-name {
+    font-weight: bold;
+}
+
+.products-container .products-list .product-card.cat-paletas .product-info .product-category-name {
+    color: #6c3495; 
+    font-weight: lighter;
+    opacity: 0.8;
+}
