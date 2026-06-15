@@ -32,7 +32,7 @@ export class Router {
     if (!this.container) return;
 
     if (screen === this.activeScreen) {
-      console.log(`Router: La pantalla "${screen}" ya está activa, evitando re-render innecesario.`);
+       // console.log(`Router: La pantalla "${screen}" ya está activa, evitando re-render innecesario.`);
       return; 
     }
 
