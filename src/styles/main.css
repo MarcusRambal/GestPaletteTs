@@ -3,6 +3,7 @@
 /*  Estilo de componentes */
 @import "../components/mainWindow/MainWindow.css";
 @import "../components/mainWindow/subComponents/Products.css";
+@import "../components/mainWindow/subComponents/Search.css";
 
 
 body {

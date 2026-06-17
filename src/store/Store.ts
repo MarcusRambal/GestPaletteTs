@@ -1,15 +1,22 @@
-import { Product } from "../../types/types.js";
+import { Product, Category } from "../../types/types.js";
 
 
 export interface AppState {
+  //Router
   currentScreen: "home" | "balance" | "configuracion"; // Puedes limitar las pantallas válidas aquí
+
+  //Productos, filtrado, etc
   productsCatalog: Product[];
   filteredCatalog: Product[];
   searchQuery: string;
+  categoriesCatalog: Category[]; 
   selectedCategory: string;
-  facturasCargadas: any[]; 
+
   focusedProductIndex: number; // -1 significa ninguno, 0 el primero, 1 el segundo, etc.
   triggerSelectProduct: boolean; // Un flag/gatillo para avisar que se presionó Enter
+
+  facturasCargadas: any[]; 
+  
 }
 
 // Definimos el tipo para las funciones suscriptoras
@@ -60,6 +67,7 @@ export const storeGlobal = new Store({
   filteredCatalog: [],
   searchQuery: "",
   selectedCategory: "",
+  categoriesCatalog: [],
   facturasCargadas: [],
   focusedProductIndex: -1,
   triggerSelectProduct: false,

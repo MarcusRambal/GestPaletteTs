@@ -1,29 +1,54 @@
 import { storeGlobal } from '../../../store/Store.js';
-import type { Product } from '../../../../types/types.js';
+import type { Category, Product } from '../../../../types/types.js';
 
 export class Search {
+
+  private dropdownElement: HTMLDivElement | null = null; 
 
   render(subContainer: HTMLElement): void {
 
     subContainer.innerHTML = `
+    <div class = "search-container">
       <div class="search-bar-box">
         <input type="text" id="search-input" placeholder="Buscar producto...">
         <button id="search-button">Buscar</button>
-        <button id="filter-button">Filtrar <span>🔽</span></button>
+        
         <button id="newTag-button">Nueva Etiqueta</button>
       </div>
+
+        
+      <div class = "search-filter"> 
+        <button id="filter-button">Filtrar <span>🔽</span></button>
+          <div id="filter-dropdown" class="filter-dropdown hidden">
+            <div class="dropdown-item active" data-category="">Todos los productos</div>
+          </div>
+      </ div>
+      
+    </div>
     `;
 
     
     const searchButton = subContainer.querySelector('#search-button') as HTMLButtonElement | null;
     const searchInput = subContainer.querySelector('#search-input') as HTMLInputElement | null;
-
-   
-
     const filterButton = subContainer.querySelector('#filter-button') as HTMLButtonElement | null;
     const newTagButton = subContainer.querySelector('#newTag-button') as HTMLButtonElement | null;
 
-    if (searchButton && searchInput) {
+    this.dropdownElement = subContainer.querySelector('#filter-dropdown') as HTMLDivElement | null;
+
+    if (searchButton && searchInput && filterButton && this.dropdownElement) {
+
+      // Evento para abrir/cerrar el dropdown
+      filterButton.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evita que el evento cierre el menú inmediatamente
+        this.dropdownElement?.classList.toggle('hidden');
+      });
+
+      // Cerrar el dropdown si se hace clic fuera del buscador
+      document.addEventListener('click', () => {
+        this.dropdownElement?.classList.add('hidden');
+      });
+
+
       searchButton.addEventListener('click', () => {
         const query = searchInput.value; 
         this.searchQuery(query);
@@ -71,6 +96,7 @@ export class Search {
               console.log("¡Teclado detectado! Producto capturado en Search:", productoSeleccionado);
               
               this.selectProduct(productoSeleccionado);
+              
 
             } else {
               console.log("Presionó Enter pero el índice no apunta a ningún producto válido (o la lista está vacía).");
@@ -102,11 +128,71 @@ export class Search {
            }
          }
       });
+
+      this.loadFilters();
+
+      // Suscribirse al Store para repintar las opciones si cambia la categoría seleccionada
+      storeGlobal.subscribe((state) => {
+        this.renderDropdownOptions(state.categoriesCatalog, state.selectedCategory);
+      });
       
     } else {
       console.error("Search Component Error: No se encontraron los elementos necesarios en el DOM.");
     }
   }
+
+  private async loadFilters(): Promise<void> {
+    try {
+      // Si ya existen categorías en el Store, no golpeamos la base de datos de nuevo
+      if (storeGlobal.get().categoriesCatalog && storeGlobal.get().categoriesCatalog.length > 0) {
+        const state = storeGlobal.get();
+        this.renderDropdownOptions(state.categoriesCatalog, state.selectedCategory);
+        return;
+      }
+      
+      // Llamada limpia usando tu nueva query IPC
+      const categories: Category[] = await window.paletteAPI.Products.getCategories();
+      
+      // Guardamos directamente en la propiedad global correspondiente de tu Store
+      storeGlobal.update({ categoriesCatalog: categories });
+
+    } catch (error) {
+      console.error("Error al cargar las categorías en el buscador:", error);
+    }
+  }
+
+  // Dibuja las cajitas interactivas del menú desplegable de forma dinámica
+  private renderDropdownOptions(categories: Category[], selectedCategory: string): void {
+    if (!this.dropdownElement) return;
+
+    this.dropdownElement.innerHTML = '';
+
+    // Opción por defecto para remover el filtro
+    const allOption = document.createElement('div');
+    allOption.className = `dropdown-item ${selectedCategory === '' ? 'active' : ''}`;
+    allOption.textContent = 'Todos los productos';
+    allOption.addEventListener('click', () => {
+      storeGlobal.update({ selectedCategory: '', focusedProductIndex: 0 });
+    });
+    this.dropdownElement.appendChild(allOption);
+
+    // Inyectamos las categorías traídas desde SQLite
+    categories.forEach(cat => {
+      const option = document.createElement('div');
+      option.className = `dropdown-item ${selectedCategory === cat.name ? 'active' : ''}`;
+      option.textContent = cat.name;
+
+      option.addEventListener('click', () => {
+        storeGlobal.update({ 
+          selectedCategory: cat.name, 
+          focusedProductIndex: 0 // Reseteamos foco al primer ítem del nuevo filtro
+        });
+      });
+
+      this.dropdownElement?.appendChild(option);
+    });
+  }
+
 
   private searchQuery(query: string): void {
     console.log("Buscando de forma nativa:", query);

@@ -7,31 +7,40 @@ export class Products {
 
   private lastSearchQuery: string | null  = null
   private lastSelectedCategory: string | null = null
+  private lastProductsLength: number = 0; 
 
   constructor() {
     this.productList = null;
 
 
     storeGlobal.subscribe((state) => {
-    
-    //Evitar re-renderizados si se dan clicks al boton
-    if (!this.productList || !document.body.contains(this.productList)) {
-      console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
-      return;
-    }
+  
+        if (!this.productList || !document.body.contains(this.productList)) {
+          console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
+          return;
+        }
 
-    // Evitar re-renderizar el componente si los estados que usa no han cambiado
-    if(state.searchQuery !== this.lastSearchQuery || state.selectedCategory !== this.lastSelectedCategory) {
-      
-      this.lastSearchQuery = state.searchQuery;
-      this.lastSelectedCategory = state.selectedCategory;
+        // Creamos una variable auxiliar para saber si el catálogo en el store tiene productos,
+        // pero nosotros en nuestra propiedad local todavía no tenemos registro de ellos.
+        const catalogHasLoaded = state.productsCatalog.length > 0 && (!this.lastProductsLength || this.lastProductsLength === 0);
 
-      this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
-    }
+        // Evaluamos si cambió el texto, cambió la categoría, O si los productos acaban de cargarse por primera vez
+        if (
+          state.searchQuery !== this.lastSearchQuery || 
+          state.selectedCategory !== this.lastSelectedCategory ||
+          catalogHasLoaded
+        ) {
+          
+          // Sincronizamos las banderas de control
+          this.lastSearchQuery = state.searchQuery;
+          this.lastSelectedCategory = state.selectedCategory;
+          this.lastProductsLength = state.productsCatalog.length; 
 
-      this.updateFocusedProduct(state.focusedProductIndex);
-    })
-      
+          this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
+        }
+
+        this.updateFocusedProduct(state.focusedProductIndex);
+      });
   }
 
   render(subContainer: HTMLElement): void {
@@ -70,6 +79,7 @@ export class Products {
         return;
       }
       
+
       const products: Product[] = await window.paletteAPI.Products.getProducts();
       
      // console.log("Productos obtenidos:", products);
@@ -110,7 +120,20 @@ export class Products {
           );
         }
 
-        products.forEach(product => {
+      if (selectedCategory && selectedCategory.trim() !== '') {
+          console.log("Filtrando productos por categoría:", selectedCategory);
+          products = products.filter(product => 
+          product.category_name.toLowerCase().trim() === selectedCategory.toLowerCase().trim()
+        );
+      }
+
+      if (products.length === 0) {
+        this.productList.innerHTML = `<p class="null-text">No hay productos que coincidan con los filtros.</p>`;
+         return;
+      }
+
+        products.forEach((product, index )=> {
+          
         
           const productCard = document.createElement('div') as HTMLDivElement;
           
@@ -126,6 +149,17 @@ export class Products {
             </div>
             <div class="product-price-badge">$${product.price}</div>
           `;
+
+          productCard.addEventListener('click', () => {
+          // 1. Sincronización visual opcional: 
+          // Si haces clic, es buena UX que el índice del teclado se mueva a esta tarjeta
+          storeGlobal.update({ focusedProductIndex: index });
+
+          // 2. Despachas el producto al flujo del carrito
+          console.log("Producto seleccionado por CLIC directamente al Store:", product);
+        });
+
+
 
           this.productList!.appendChild(productCard);
         });
