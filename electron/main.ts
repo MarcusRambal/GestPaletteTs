@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { initDB, closeDB } from '../db/schema';
-import { getProducts } from '../db/queries/products';
+import { getProducts, getCategories } from '../db/queries/products';
 
 // ─── Optimizaciones de rendimiento ────────────────────────────────────────────
 // IMPORTANTE: estas flags deben llamarse ANTES de app.whenReady()
@@ -20,8 +20,13 @@ app.commandLine.appendSwitch('disable-extensions');
 // ─── IPC Handlers ────────────────────────────────────────────────────────────
 
 function registerIPCHandlers(): void {
+  
   ipcMain.handle('get-products', async () => {
     return await getProducts();
+  });
+
+  ipcMain.handle('get-categories', async () => {
+    return await getCategories();
   });
 
   // TODO (Fase 2):

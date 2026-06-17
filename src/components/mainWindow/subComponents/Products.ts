@@ -1,14 +1,46 @@
-
+import { storeGlobal } from '../../../store/Store.js';
 import type { Product } from '../../../../types/types.js';
 
 
 export class Products {
-  // 2. Declaramos la propiedad de la clase con su tipo de elemento del DOM
   private productList: HTMLDivElement | null = null;
-  private allProducts: Product[] = [];
+
+  private lastSearchQuery: string | null  = null
+  private lastSelectedCategory: string | null = null
+  private lastProductsLength: number = 0; 
 
   constructor() {
     this.productList = null;
+
+
+    storeGlobal.subscribe((state) => {
+  
+        if (!this.productList || !document.body.contains(this.productList)) {
+          console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
+          return;
+        }
+
+        // Creamos una variable auxiliar para saber si el catálogo en el store tiene productos,
+        // pero nosotros en nuestra propiedad local todavía no tenemos registro de ellos.
+        const catalogHasLoaded = state.productsCatalog.length > 0 && (!this.lastProductsLength || this.lastProductsLength === 0);
+
+        // Evaluamos si cambió el texto, cambió la categoría, O si los productos acaban de cargarse por primera vez
+        if (
+          state.searchQuery !== this.lastSearchQuery || 
+          state.selectedCategory !== this.lastSelectedCategory ||
+          catalogHasLoaded
+        ) {
+          
+          // Sincronizamos las banderas de control
+          this.lastSearchQuery = state.searchQuery;
+          this.lastSelectedCategory = state.selectedCategory;
+          this.lastProductsLength = state.productsCatalog.length; 
+
+          this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
+        }
+
+        this.updateFocusedProduct(state.focusedProductIndex);
+      });
   }
 
   render(subContainer: HTMLElement): void {
@@ -32,23 +64,29 @@ export class Products {
     this.loadProducts();
   }
 
-  async loadProducts(): Promise<void> {
+  private async loadProducts(): Promise<void> {
    
     if (!this.productList) return;
 
     try {
-      // 3. Forzamos a que la respuesta de la API de Electron use el tipado de nuestra interfaz
-      // Nota: Si usaste 'window.electronAPI', cámbialo por tu API 'paletteAPI' extendida en el preload
-      const products: Product[] = await window.paletteAPI.Products.getProducts();
-      console.log("Productos obtenidos:", products);
-      this.allProducts = products.filter(p => p.active === 1); // Guardamos todos los productos para futuras operaciones (filtros, búsquedas, etc.)
-
-      this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
-
-      const initialProducts = this.allProducts.slice(0, 20);
-        this.renderList(initialProducts);
-     
+      // Si hay productos en el catalogo evitamos volver a llamar a la api
+      if(storeGlobal.get().productsCatalog.length > 0  ){
       
+        //  console.log("Productos ya cargados en el store, evitando llamada a API.");
+        this.productList.innerHTML = ""; 
+        const state = storeGlobal.get();
+        this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
+        return;
+      }
+      
+
+      const products: Product[] = await window.paletteAPI.Products.getProducts();
+      
+     // console.log("Productos obtenidos:", products);
+
+      this.productList.innerHTML = ""; 
+
+      storeGlobal.update({ productsCatalog: products });
 
     } catch (error) {
       console.error("Error al cargar productos:", error);
@@ -56,45 +94,89 @@ export class Products {
     }
   }
 
-  renderList (products: Product[]): void {
-    if (!this.productList) return;
+    // Renderizar productos
+    private renderList (products: Product[], searchQuery: string, selectedCategory: string): void {
 
-    this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
+      console.log("Volviendo a renderizar")
 
-     if (products.length === 0) {
-        this.productList.innerHTML = `<p class="null-text">No hay productos registrados.</p>`;
-        return;
+      
+      if (!this.productList){
+        console.log("No hay productos que mostrar")
+        return
+      } 
+
+      this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
+
+      if (products.length === 0) {
+          this.productList.innerHTML = `<p class="null-text">No hay productos registrados.</p>`;
+          return;
+        }
+      
+      // Verificamos si hay input en la barra de busqueda y renderizamos el filtro
+      if(searchQuery  && searchQuery.trim() !== '') {
+          console.log("Filtrando productos por búsqueda:", searchQuery);
+          products = products.filter(product => 
+            product.name.toLowerCase().includes(searchQuery.toLowerCase()) 
+          );
+        }
+
+      if (selectedCategory && selectedCategory.trim() !== '') {
+          console.log("Filtrando productos por categoría:", selectedCategory);
+          products = products.filter(product => 
+          product.category_name.toLowerCase().trim() === selectedCategory.toLowerCase().trim()
+        );
       }
 
-      products.forEach(product => {
-        // Creamos el contenedor de la tarjeta especificando que es un HTMLDivElement
-        const productCard = document.createElement('div') as HTMLDivElement;
+      if (products.length === 0) {
+        this.productList.innerHTML = `<p class="null-text">No hay productos que coincidan con los filtros.</p>`;
+         return;
+      }
+
+        products.forEach((product, index )=> {
+          
         
-        // Asignamos el dataset de forma segura (los datasets guardan strings)
-        productCard.dataset.id = product.id.toString();
+          const productCard = document.createElement('div') as HTMLDivElement;
+          
+          productCard.dataset.id = product.id.toString();
 
-        const categoryClass = `cat-${product.category_name.toLowerCase().trim()}`;
-        productCard.className = `product-card ${categoryClass}`;
+          const categoryClass = `cat-${product.category_name.toLowerCase().trim()}`;
+          productCard.className = `product-card ${categoryClass}`;
 
-        productCard.innerHTML = `
-          <div class="product-info">
-            <span class="product-name">${product.name}</span>
-            <span class="product-category-name">${product.category_name}</span> 
-          </div>
-          <div class="product-price-badge">$${product.price}</div>
-        `;
-        
-        // El evento click sabe exactamente qué tipo de objeto 'product' está enviando
-        productCard.addEventListener('click', () => this.selectProduct(product));
+          productCard.innerHTML = `
+            <div class="product-info">
+              <span class="product-name">${product.name}</span>
+              <span class="product-category-name">${product.category_name}</span> 
+            </div>
+            <div class="product-price-badge">$${product.price}</div>
+          `;
 
-        // TypeScript sabe con certeza que this.productList no es null gracias a la validación del inicio
-        this.productList!.appendChild(productCard);
-      });
+          productCard.addEventListener('click', () => {
+          // 1. Sincronización visual opcional: 
+          // Si haces clic, es buena UX que el índice del teclado se mueva a esta tarjeta
+          storeGlobal.update({ focusedProductIndex: index });
 
-  }
+          // 2. Despachas el producto al flujo del carrito
+          console.log("Producto seleccionado por CLIC directamente al Store:", product);
+        });
 
-  selectProduct(product: Product): void {
-    console.log("Producto seleccionado:", product);
-    // Aquí más adelante podrás disparar un storeGlobal.update(...) para mandarlo al carrito
-  }
+
+
+          this.productList!.appendChild(productCard);
+        });
+
+    }
+
+    private updateFocusedProduct(focusedIndex: number): void {
+      if (!this.productList) return;
+        const productCards = this.productList.querySelectorAll('.product-card');
+
+        productCards.forEach((card, index) => {
+          if (index === focusedIndex) {
+            card.classList.add('focused');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });            
+          } else {
+            card.classList.remove('focused');
+          }
+        });
+    }
 }

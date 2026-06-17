@@ -5,3 +5,9 @@ export interface Product {
   price: number;
   active: number; // 1 para activo, 0 para inactivo
 }
+
+
+export interface Category {
+  id: number;
+  name: string;
+}

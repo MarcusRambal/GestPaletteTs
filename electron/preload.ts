@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { Product } from '@app/types';
+import { Product, Category } from '@app/types';
+
 
 // 1. Creamos el objeto con todas tus APIs tipadas de forma nativa
 const paletteAPI = {
@@ -15,6 +16,9 @@ const paletteAPI = {
     },
     deleteProduct: async (productId: number): Promise<any> => {
       return await ipcRenderer.invoke('delete-product', productId);
+    },
+    getCategories: async (): Promise<Category[]> => {
+      return await ipcRenderer.invoke('get-categories')
     }
   },
   Invoice: {

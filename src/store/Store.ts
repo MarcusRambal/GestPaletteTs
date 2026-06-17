@@ -1,10 +1,25 @@
+import { Product, Category } from "../../types/types.js";
+
 
 export interface AppState {
+  //Router
   currentScreen: "home" | "balance" | "configuracion"; // Puedes limitar las pantallas válidas aquí
+
+  //Productos, filtrado, etc
+  productsCatalog: Product[];
+  filteredCatalog: Product[];
+  searchQuery: string;
+  categoriesCatalog: Category[]; 
+  selectedCategory: string;
+
+  focusedProductIndex: number; // -1 significa ninguno, 0 el primero, 1 el segundo, etc.
+  triggerSelectProduct: boolean; // Un flag/gatillo para avisar que se presionó Enter
+
   facturasCargadas: any[]; 
+  
 }
 
-// 2. Definimos el tipo para las funciones suscriptoras
+// Definimos el tipo para las funciones suscriptoras
 type SubscriberCallback = (state: AppState) => void;
 
 class Store {
@@ -23,14 +38,24 @@ class Store {
 
   // Modificar el estado usando Partial para permitir cambios parciales
   update(nuevoFragmento: Partial<AppState>): void {
-    this.state = { ...this.state, ...nuevoFragmento };
+
     
+    //Evitar spam si la pantalla no cambia al boton
+    if (nuevoFragmento.currentScreen && nuevoFragmento.currentScreen === this.state.currentScreen) {
+      console.log(`Store: La pantalla "${nuevoFragmento.currentScreen}" ya está activa, evitando actualización innecesaria.`);
+    return; 
+  }
+    this.state = { ...this.state, ...nuevoFragmento };
+      
+    console.log("Store: Estado actualizado:", this.state);
     // Notificar a cada componente suscrito
     this.subscribers.forEach(callback => callback(this.state));
   }
 
+
+
   // Registrar un componente para escuchar los cambios
-  suscribe(callback: SubscriberCallback): void {
+  subscribe(callback: SubscriberCallback): void {
     this.subscribers.push(callback);
   }
 }
@@ -38,5 +63,12 @@ class Store {
 // Instancia única para toda la aplicación (Singleton)
 export const storeGlobal = new Store({
   currentScreen: "home",
-  facturasCargadas: []
+  productsCatalog: [],
+  filteredCatalog: [],
+  searchQuery: "",
+  selectedCategory: "",
+  categoriesCatalog: [],
+  facturasCargadas: [],
+  focusedProductIndex: -1,
+  triggerSelectProduct: false,
 });

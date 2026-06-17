@@ -1,5 +1,5 @@
 import { getDB } from '../schema';
-import type { Product } from '../../types/types';
+import type { Product, Category } from '../../types/types';
 
 /**
  * Devuelve todos los productos activos con su nombre de categoría.
@@ -46,6 +46,30 @@ export function getAllProducts(): Promise<Product[]> {
       (err, rows) => {
         if (err) reject(err);
         else     resolve(rows);
+      }
+    );
+  });
+}
+
+
+/**
+ * Devuelve todas las categorías registradas en el sistema ordenadas alfabéticamente.
+ * Usado por el panel de filtros y la gestión de productos.
+ */
+export function getCategories(): Promise<Category[]> {
+  return new Promise((resolve, reject) => {
+    getDB().all<Category>(
+      `SELECT 
+         id, 
+         name 
+       FROM categories 
+       ORDER BY name ASC`,
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
       }
     );
   });
