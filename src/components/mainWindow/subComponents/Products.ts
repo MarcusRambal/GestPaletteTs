@@ -159,8 +159,6 @@ export class Products {
           console.log("Producto seleccionado por CLIC directamente al Store:", product);
         });
 
-
-
           this.productList!.appendChild(productCard);
         });
 

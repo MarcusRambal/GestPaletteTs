@@ -37,6 +37,29 @@ export class Search {
 
     if (searchButton && searchInput && filterButton && this.dropdownElement) {
 
+
+      // ✨ 1. ENFOQUE INICIAL: El cursor parpadea de forma inmediata al renderizar la vista
+      setTimeout(() => searchInput.focus(), 50);
+
+      // ✨ 2. SECUESTRO DE FOCO PERSISTENTE EN PANTALLA:
+      // Si el cajero hace clic en un fondo vacío del buscador o de la app, le regresamos el foco al input
+      document.addEventListener('click', (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        
+        // Excepciones: NO quitamos el foco si el usuario interactúa explícitamente con inputs, botones o el dropdown
+        if (
+          target.tagName === 'INPUT' || 
+          target.tagName === 'BUTTON' || 
+          target.closest('.filter-dropdown')
+        ) {
+          return; 
+        }
+
+        // Si dio click afuera (un área muerta), forzamos el foco de vuelta
+        searchInput.focus();
+      });
+
+
       // Evento para abrir/cerrar el dropdown
       filterButton.addEventListener('click', (e) => {
         e.stopPropagation(); // Evita que el evento cierre el menú inmediatamente
@@ -96,6 +119,12 @@ export class Search {
               console.log("¡Teclado detectado! Producto capturado en Search:", productoSeleccionado);
               
               this.selectProduct(productoSeleccionado);
+
+              // ✨ 3. FLUJO POS POST-SELECCIÓN:
+              // Limpiamos la caja de texto para la siguiente venta y aseguramos el foco
+              searchInput.value = '';
+              storeGlobal.update({ searchQuery: '', focusedProductIndex: 0 });
+              searchInput.focus();
               
 
             } else {
