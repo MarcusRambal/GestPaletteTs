@@ -10,10 +10,9 @@ export class Search {
     subContainer.innerHTML = `
     <div class = "search-container">
       <div class="search-bar-box">
-        <input type="text" id="search-input" placeholder="Buscar producto...">
-        <button id="search-button">Buscar</button>
-        
-        <button id="newTag-button">Nueva Etiqueta</button>
+        <input type="text" id="search-input" class = "search-input" placeholder="Buscar producto...">
+        <button id="search-button" class= "search-button">Buscar</button>
+
       </div>
 
         
@@ -31,11 +30,33 @@ export class Search {
     const searchButton = subContainer.querySelector('#search-button') as HTMLButtonElement | null;
     const searchInput = subContainer.querySelector('#search-input') as HTMLInputElement | null;
     const filterButton = subContainer.querySelector('#filter-button') as HTMLButtonElement | null;
-    const newTagButton = subContainer.querySelector('#newTag-button') as HTMLButtonElement | null;
 
     this.dropdownElement = subContainer.querySelector('#filter-dropdown') as HTMLDivElement | null;
 
     if (searchButton && searchInput && filterButton && this.dropdownElement) {
+
+
+      // ✨ 1. ENFOQUE INICIAL: El cursor parpadea de forma inmediata al renderizar la vista
+      setTimeout(() => searchInput.focus(), 50);
+
+      // ✨ 2. SECUESTRO DE FOCO PERSISTENTE EN PANTALLA:
+      // Si el cajero hace clic en un fondo vacío del buscador o de la app, le regresamos el foco al input
+      document.addEventListener('click', (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        
+        // Excepciones: NO quitamos el foco si el usuario interactúa explícitamente con inputs, botones o el dropdown
+        if (
+          target.tagName === 'INPUT' || 
+          target.tagName === 'BUTTON' || 
+          target.closest('.filter-dropdown')
+        ) {
+          return; 
+        }
+
+        // Si dio click afuera (un área muerta), forzamos el foco de vuelta
+        searchInput.focus();
+      });
+
 
       // Evento para abrir/cerrar el dropdown
       filterButton.addEventListener('click', (e) => {
@@ -96,6 +117,12 @@ export class Search {
               console.log("¡Teclado detectado! Producto capturado en Search:", productoSeleccionado);
               
               this.selectProduct(productoSeleccionado);
+
+              // ✨ 3. FLUJO POS POST-SELECCIÓN:
+              // Limpiamos la caja de texto para la siguiente venta y aseguramos el foco
+              searchInput.value = '';
+              storeGlobal.update({ searchQuery: '', focusedProductIndex: 0 });
+              searchInput.focus();
               
 
             } else {
@@ -208,5 +235,6 @@ export class Search {
 
   private selectProduct (product:Product ):void {
       console.log("Producto Seleccionado: ",  product)
+      storeGlobal.addProductToCart(product);
   }
 }
