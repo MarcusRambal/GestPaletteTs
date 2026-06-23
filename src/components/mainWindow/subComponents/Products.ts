@@ -154,6 +154,7 @@ export class Products {
           // 1. Sincronización visual opcional: 
           // Si haces clic, es buena UX que el índice del teclado se mueva a esta tarjeta
           storeGlobal.update({ focusedProductIndex: index });
+          storeGlobal.addProductToCart(product);
 
           // 2. Despachas el producto al flujo del carrito
           console.log("Producto seleccionado por CLIC directamente al Store:", product);

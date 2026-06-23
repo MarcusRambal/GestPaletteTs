@@ -11,6 +11,23 @@
 
 }
 
+.search-container .search-bar-box {
+
+}
+
+.search-container .search-bar-box .search-input {
+    width: 300px;
+    height: 40px;
+    font-size: 20px;
+}
+
+.search-container .search-bar-box .search-button {
+    width: 80px;
+    height: 40px;
+    font-size: 18px;
+}
+
+
 
 .search-container .search-filter{
     display: flex;

@@ -10,10 +10,9 @@ export class Search {
     subContainer.innerHTML = `
     <div class = "search-container">
       <div class="search-bar-box">
-        <input type="text" id="search-input" placeholder="Buscar producto...">
-        <button id="search-button">Buscar</button>
-        
-        <button id="newTag-button">Nueva Etiqueta</button>
+        <input type="text" id="search-input" class = "search-input" placeholder="Buscar producto...">
+        <button id="search-button" class= "search-button">Buscar</button>
+
       </div>
 
         
@@ -31,7 +30,6 @@ export class Search {
     const searchButton = subContainer.querySelector('#search-button') as HTMLButtonElement | null;
     const searchInput = subContainer.querySelector('#search-input') as HTMLInputElement | null;
     const filterButton = subContainer.querySelector('#filter-button') as HTMLButtonElement | null;
-    const newTagButton = subContainer.querySelector('#newTag-button') as HTMLButtonElement | null;
 
     this.dropdownElement = subContainer.querySelector('#filter-dropdown') as HTMLDivElement | null;
 
@@ -237,5 +235,6 @@ export class Search {
 
   private selectProduct (product:Product ):void {
       console.log("Producto Seleccionado: ",  product)
+      storeGlobal.addProductToCart(product);
   }
 }
