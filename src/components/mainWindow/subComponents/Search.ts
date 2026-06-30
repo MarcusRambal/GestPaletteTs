@@ -157,10 +157,24 @@ export class Search {
       });
 
       this.loadFilters();
-
+      
+      let lastCategoriesLength = storeGlobal.get().categoriesCatalog.length;
+      let lastSelectedCategory = storeGlobal.get().selectedCategory;
       // Suscribirse al Store para repintar las opciones si cambia la categoría seleccionada
       storeGlobal.subscribe((state) => {
-        this.renderDropdownOptions(state.categoriesCatalog, state.selectedCategory);
+        // OJO: Solo repintamos el DOM si cambió el número de categorías o la selección activa
+        const categoriesChanged = state.categoriesCatalog.length !== lastCategoriesLength;
+        const selectionChanged = state.selectedCategory !== lastSelectedCategory;
+
+        if (categoriesChanged || selectionChanged) {
+          // Actualizamos las variables de control (caché)
+          lastCategoriesLength = state.categoriesCatalog.length;
+          lastSelectedCategory = state.selectedCategory;
+
+          // Ejecutamos el redibujado en el DOM real
+          console.log("Search: Detectado cambio crítico en categorías. Repintando dropdown...");
+          this.renderDropdownOptions(state.categoriesCatalog, state.selectedCategory);
+        }
       });
       
     } else {

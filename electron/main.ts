@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { initDB, closeDB } from '../db/schema';
-import { getProducts, getCategories } from '../db/queries/products';
+import { getProducts, getCategories, createCategory, createProduct} from '../db/queries/products';
 
 // ─── Optimizaciones de rendimiento ────────────────────────────────────────────
 // IMPORTANTE: estas flags deben llamarse ANTES de app.whenReady()
@@ -21,12 +21,45 @@ app.commandLine.appendSwitch('disable-extensions');
 
 function registerIPCHandlers(): void {
   
+  // 📦 Obtener Catálogo de Productos
   ipcMain.handle('get-products', async () => {
-    return await getProducts();
+    try {
+      return await getProducts();
+    } catch (error) {
+      console.error("Error en el canal IPC 'get-products':", error);
+      throw error; // Devuelve el error al proceso Renderer de forma segura
+    }
   });
 
+  // 🗂️ Obtener Catálogo de Categorías
   ipcMain.handle('get-categories', async () => {
-    return await getCategories();
+    try {
+      return await getCategories();
+    } catch (error) {
+      console.error("Error en el canal IPC 'get-categories':", error);
+      throw error;
+    }
+  });
+
+  // ✨ Crear Nueva Categoría
+  ipcMain.handle('create-category', async (_event, category) => {
+    try {
+      return await createCategory(category);
+    } catch (error) {
+      console.error("Error en el canal IPC 'create-category':", error);
+      throw error;
+    }
+  });
+
+  // 🍦 Crear Nuevo Producto
+  ipcMain.handle('create-product', async (_event, product) => {
+    try {
+      const newId = await createProduct(product);
+      return newId; 
+    } catch (error) {
+      console.error("Error en el canal IPC 'create-product':", error);
+      throw error;
+    }
   });
 
   // TODO (Fase 2):

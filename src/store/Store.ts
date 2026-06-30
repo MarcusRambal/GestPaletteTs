@@ -1,9 +1,10 @@
+console.log("antes del import de los tipados")
 import { Product, Category, CartItem } from "../../types/types.js";
 
 
 export interface AppState {
   //Router
-  currentScreen: "home" | "balance" | "configuracion"; // Puedes limitar las pantallas válidas aquí
+  currentScreen: "home" | "balance" | "create" | "editDelete"; // Puedes limitar las pantallas válidas aquí
 
   //Products and Search
   productsCatalog: Product[];
@@ -23,6 +24,8 @@ export interface AppState {
   focusedProductIndex: number; // -1 significa ninguno, 0 el primero, 1 el segundo, etc.
   triggerSelectProduct: boolean; // Un flag/gatillo para avisar que se presionó Enter
 
+
+  colors: string[];
   facturasCargadas: any[]; 
   
 }
@@ -147,4 +150,10 @@ export const storeGlobal = new Store({
   amountCard: 0,
   focusedProductIndex: -1,
   triggerSelectProduct: false,
+  colors: [
+  "cat-strawberry", "cat-raspberry", "cat-blackberry", "cat-cherry", "cat-watermelon", "cat-bubblegum",
+  "cat-mango", "cat-passion", "cat-lemon", "cat-banana", "cat-lime", "cat-mint", "cat-kiwi", "cat-pistachio",
+  "cat-chocolate", "cat-nut", "cat-caramel", "cat-coffee", "cat-vanilla", "cat-coconut",
+  "cat-blueberry", "cat-sky", "cat-turquoise", "cat-grape", "cat-lavender", "cat-cyan", "cat-denim", "cat-plum",
+  "cat-slate", "cat-charcoal"]
 });

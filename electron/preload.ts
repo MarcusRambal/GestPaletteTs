@@ -19,7 +19,13 @@ const paletteAPI = {
     },
     getCategories: async (): Promise<Category[]> => {
       return await ipcRenderer.invoke('get-categories')
-    }
+    },
+    createCategory: async (category: { name: string; color: string }): Promise<number> => {
+      return await ipcRenderer.invoke('create-category', category);
+    },
+    createProduct: async (product: { name: string; price: number; category_id: number; category_name: string; }): Promise<number> => {
+      return await ipcRenderer.invoke('create-product', product);
+    },
   },
   Invoice: {
     addInvoice: async (invoice: any): Promise<any> => {

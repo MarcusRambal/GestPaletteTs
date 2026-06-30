@@ -61,16 +61,58 @@ export function getCategories(): Promise<Category[]> {
     getDB().all<Category>(
       `SELECT 
          id, 
-         name 
+         name,
+         color
        FROM categories 
        ORDER BY name ASC`,
       (err, rows) => {
         if (err) {
+          console.error("Error al obtener las categorias:", err);
           reject(err);
         } else {
           resolve(rows);
         }
       }
     );
+  });
+}
+
+export function createCategory(category: { name: string; color: string }): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const query = `INSERT INTO categories (name, color) VALUES (?, ?)`;
+
+    // Usamos db.run porque es una mutación (INSERT). 
+    // "this.lastID" nos da el ID autoincremental generado por SQLite.
+    getDB().run(query, [category.name, category.color], function (err) {
+      if (err) {
+        console.error("Error al insertar categoría en SQLite:", err);
+        reject(err);
+        return;
+      }
+      
+      // Retornamos el ID asignado en la base de datos
+      resolve(this.lastID); 
+    });
+  });
+}
+
+export function createProduct(product: {name: string;price: number;category_id: number;}): Promise<number> {
+  return new Promise((resolve, reject) => {
+    // Query corregido alineado con tus columnas exactas
+    const query = `
+      INSERT INTO products (name, price, category_id) 
+      VALUES (?, ?, ?)
+    `;
+
+    const params = [product.name, product.price, product.category_id];
+
+    getDB().run(query, params, function (err) {
+      if (err) {
+        console.error("Error al ejecutar el INSERT de producto en SQLite:", err);
+        reject(err);
+        return;
+      }
+      resolve(this.lastID);
+    });
   });
 }
