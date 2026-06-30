@@ -13,7 +13,7 @@ export class Products {
     this.productList = null;
 
 
-    storeGlobal.subscribe((state) => {
+    storeGlobal.subscribe((state) => {  
   
         if (!this.productList || !document.body.contains(this.productList)) {
           console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
@@ -25,9 +25,7 @@ export class Products {
         const catalogHasLoaded = state.productsCatalog.length > 0 && (!this.lastProductsLength || this.lastProductsLength === 0);
 
         // Evaluamos si cambió el texto, cambió la categoría, O si los productos acaban de cargarse por primera vez
-        if (
-          state.searchQuery !== this.lastSearchQuery || 
-          state.selectedCategory !== this.lastSelectedCategory ||
+        if (state.searchQuery !== this.lastSearchQuery || state.selectedCategory !== this.lastSelectedCategory ||
           catalogHasLoaded
         ) {
           
@@ -65,34 +63,34 @@ export class Products {
   }
 
   private async loadProducts(): Promise<void> {
-   
-    if (!this.productList) return;
+   if (!this.productList) return;
 
-    try {
-      // Si hay productos en el catalogo evitamos volver a llamar a la api
-      if(storeGlobal.get().productsCatalog.length > 0  ){
-      
-        //  console.log("Productos ya cargados en el store, evitando llamada a API.");
-        this.productList.innerHTML = ""; 
-        const state = storeGlobal.get();
-        this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
-        return;
-      }
-      
+   try {
+     // Si hay productos en el catálogo evitamos volver a llamar a la API
+     if (storeGlobal.get().productsCatalog.length > 0) {
+       this.productList.innerHTML = ""; 
+       const state = storeGlobal.get();
 
-      const products: Product[] = await window.paletteAPI.Products.getProducts();
-      
-     // console.log("Productos obtenidos:", products);
+       
+       this.lastSearchQuery = state.searchQuery;
+       this.lastSelectedCategory = state.selectedCategory;
+       this.lastProductsLength = state.productsCatalog.length; 
 
-      this.productList.innerHTML = ""; 
+       this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
+       return;
+     }
+     
+     const products: Product[] = await window.paletteAPI.Products.getProducts();
+     this.productList.innerHTML = ""; 
 
-      storeGlobal.update({ productsCatalog: products });
+     // Al hacer el update, la suscripción se encargará de sincronizar las banderas en su propio flujo
+     storeGlobal.update({ productsCatalog: products });
 
-    } catch (error) {
-      console.error("Error al cargar productos:", error);
-      this.productList.innerHTML = `<p class="error-text">Error al cargar productos.</p>`;
-    }
-  }
+   } catch (error) {
+     console.error("Error al cargar productos:", error);
+     this.productList.innerHTML = `<p class="error-text">Error al cargar productos.</p>`;
+   }
+}
 
     // Renderizar productos
     private renderList (products: Product[], searchQuery: string, selectedCategory: string): void {

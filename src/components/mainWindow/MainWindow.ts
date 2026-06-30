@@ -3,6 +3,7 @@ import { Products } from './subComponents/Products.js';
 import { Table } from './subComponents/Table.js';
 import { Checkout } from './subComponents/Checkout.js';
 
+
 export class MainWindow {
   // 1. Declaramos las propiedades de la clase con sus respectivos tipos
   private search: Search | null = null;
