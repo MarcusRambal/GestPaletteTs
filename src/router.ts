@@ -1,6 +1,9 @@
+console.log('antes del import del store')
 import { storeGlobal } from './store/Store.js';
 import { MainWindow } from './components/mainWindow/MainWindow.js';
 import { Balance } from './components/Balance.js';
+import { Create } from './components/Create/Create.js';
+import { EditDelete } from './components/EditDelete/EditDelete.js';
 
 export class Router {
   private container: HTMLElement | null;
@@ -8,6 +11,8 @@ export class Router {
   // Una sola instancia de las vistas para evitar re-renderizados innecesarios y mantener su estado interno
   private homeView: MainWindow;
   private balanceView: Balance;
+  private createView:Create;
+  private editDeleteView:EditDelete;
 
   private activeScreen: string | null = null;
 
@@ -15,6 +20,8 @@ export class Router {
     
     this.homeView = new MainWindow();
     this.balanceView = new Balance();
+    this.createView = new Create ();
+    this.editDeleteView = new EditDelete();
     
     this.container = document.getElementById(containerId);
 
@@ -28,7 +35,7 @@ export class Router {
     this.evalRoute(storeGlobal.get().currentScreen);
   }
 
-  private evalRoute(screen: "home" | "facturas" | "configuracion" | "balance"): void {
+  private evalRoute(screen: "home" | "facturas" | "create" | "editDelete" | "balance"): void {
     if (!this.container) return;
 
     if (screen === this.activeScreen) {
@@ -49,6 +56,14 @@ export class Router {
       }
       case "balance": {
         this.balanceView.render(this.container);
+        break;
+      }
+      case "create": {
+        this.createView.render(this.container);
+        break;
+      }
+      case "editDelete": {
+        this.editDeleteView.render(this.container);
         break;
       }
       default:
