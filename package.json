@@ -5,6 +5,7 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "build": "tsc && tsc -p tsconfig.renderer.json",
+    "test": "vitest",
     "start": "tsc && tsc -p tsconfig.renderer.json && electron .",
     "dev": "concurrently --kill-others \"tsc -w\" \"tsc -p tsconfig.renderer.json -w\" \"nodemon --watch dist/electron --watch dist/db --ext js --delay 1 --exec electron .\""
   },
@@ -18,7 +19,9 @@
   "devDependencies": {
     "concurrently": "^10.0.3",
     "electron": "^42.4.0",
+    "jsdom": "^29.1.1",
     "nodemon": "^3.1.14",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
