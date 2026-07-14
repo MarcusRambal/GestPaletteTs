@@ -1,41 +1,54 @@
 import { Router } from './router.js';
 import { storeGlobal } from './store/Store.js';
 
+// Inicializamos el enrutador
 const router = new Router('main-screen');
 
-const navHome = document.getElementById('nav-home') as HTMLButtonElement | HTMLElement | null;
-const navBalance = document.getElementById('nav-balance') as HTMLButtonElement | HTMLElement | null;
-const navCreate = document.getElementById('nav-create') as HTMLButtonElement | HTMLElement | null;
-const navEditDelete = document.getElementById('nav-editDelete') as HTMLButtonElement | HTMLElement | null;
+const sidebar = document.getElementById('sidebar-navigation');
 
-if (navHome) {
-  navHome.addEventListener('click', () => {
-    storeGlobal.update({ currentScreen: "home" });
+// ========================================================
+// 1. CONTROL DE EVENTOS: Solo expresamos intenciones al Store
+// ========================================================
+if (sidebar) {
+  sidebar.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const navButton = target.closest('[data-screen]');
+    
+    if (navButton) {
+      const screen = navButton.getAttribute('data-screen');
+      if (screen) {
+        storeGlobal.update({ currentScreen: screen as any });
+      }
+    }
   });
-} else {
-  console.warn("Renderer Warning: No se encontró el elemento '#nav-home' en el DOM.");
 }
 
-if (navBalance) {
-  navBalance.addEventListener('click', () => {
-    storeGlobal.update({ currentScreen: "balance" });
-  });
-} else {
-  console.warn("Renderer Warning: No se encontró el elemento '#nav-balance' en el DOM.");
-}
+// ========================================================
+// 2. SUSCRIPCIÓN AL STORE: El DOM reacciona al estado global
+// ========================================================
+// Guardamos la última pantalla procesada para evitar manipular el DOM innecesariamente
+let lastActiveScreen: string | null = null;
 
-if(navCreate) {
-  navCreate.addEventListener('click', ()=> {
-    storeGlobal.update({currentScreen:'create'})
-  })
-}else {
-  console.warn("Renderer Warning: No se encontro el elemento '#nav-create' en el DOM.")
-}
+storeGlobal.subscribe((state) => {
+  const currentScreen = state.currentScreen;
 
-if(navEditDelete) {
-  navEditDelete.addEventListener('click', ()=> {
-    storeGlobal.update({currentScreen: 'editDelete'})
-  })
-}else {
-  console.warn("Renderer Warning: No se encontro el elemento '#nav-editDelete' en el DOM.")
-}
+  // Optimización: Solo tocamos el DOM si la pantalla realmente cambió
+  if (currentScreen !== lastActiveScreen && sidebar) {
+    lastActiveScreen = currentScreen;
+
+    console.log(`[Navigation] Sincronizando clase activa para la pantalla: ${currentScreen}`);
+
+    // Buscamos todos los botones con el atributo 'data-screen' en el menú lateral
+    const navButtons = sidebar.querySelectorAll('[data-screen]');
+
+    navButtons.forEach((btn) => {
+      const buttonScreen = btn.getAttribute('data-screen');
+      
+      if (buttonScreen === currentScreen) {
+        btn.classList.add('active'); // Marcamos el botón de la vista actual
+      } else {
+        btn.classList.remove('active'); // Limpiamos el resto
+      }
+    });
+  }
+});

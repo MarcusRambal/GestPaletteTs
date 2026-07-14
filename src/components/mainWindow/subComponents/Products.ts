@@ -1,179 +1,221 @@
 import { storeGlobal } from '../../../store/Store.js';
 import type { Product } from '../../../../types/types.js';
-
+import type { AppState} from '../../../store/Store.js';
 
 export class Products {
   private productList: HTMLDivElement | null = null;
+  private unsubscribeStore: (() => void) | null = null;
 
-  private lastSearchQuery: string | null  = null
-  private lastSelectedCategory: string | null = null
-  private lastProductsLength: number = 0; 
+  // Banderas de control de última sincronización
+  private lastSearchQuery: string | null = null;
+  private lastSelectedCategory: string | null = null;
+  private lastProductsLength: number = 0;
 
-  constructor() {
-    this.productList = null;
-
-
-    storeGlobal.subscribe((state) => {  
-  
-        if (!this.productList || !document.body.contains(this.productList)) {
-          console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
-          return;
-        }
-
-        // Creamos una variable auxiliar para saber si el catálogo en el store tiene productos,
-        // pero nosotros en nuestra propiedad local todavía no tenemos registro de ellos.
-        const catalogHasLoaded = state.productsCatalog.length > 0 && (!this.lastProductsLength || this.lastProductsLength === 0);
-
-        // Evaluamos si cambió el texto, cambió la categoría, O si los productos acaban de cargarse por primera vez
-        if (state.searchQuery !== this.lastSearchQuery || state.selectedCategory !== this.lastSelectedCategory ||
-          catalogHasLoaded
-        ) {
-          
-          // Sincronizamos las banderas de control
-          this.lastSearchQuery = state.searchQuery;
-          this.lastSelectedCategory = state.selectedCategory;
-          this.lastProductsLength = state.productsCatalog.length; 
-
-          this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
-        }
-
-        this.updateFocusedProduct(state.focusedProductIndex);
-      });
-  }
+  constructor() {}
 
   render(subContainer: HTMLElement): void {
-    subContainer.innerHTML = `
+    // 🌟 Limpieza preventiva antes de montar la nueva vista
+    this.destroy();
 
-    <div class = "products-container">
+    subContainer.innerHTML = `
+      <div class="products-container">
         <div class="products-header"> 
           <h3>Productos</h3>
         </div>
-
-      
-          <div class="products-list" id="products-list">
-            <p class="loading">Cargando productos...</p>
-          </div>
+        <div class="products-list" id="products-list">
+          <p class="loading">Cargando productos...</p>
+        </div>
       </div>
     `;
 
-    // Asignamos el contenedor casteándolo correctamente
     this.productList = subContainer.querySelector('#products-list') as HTMLDivElement | null;
     
+    if (this.productList) {
+      // 🌟 Un único event listener delegado para TODAS las tarjetas de producto
+      this.productList.addEventListener('click', this.handleProductClick);
+
+      // Iniciar la suscripción reactiva descendente de manera segura al renderizar
+      this.unsubscribeStore = storeGlobal.subscribe((state) => {
+        this.handleStoreUpdate(state);
+      });
+    }
+
     this.loadProducts();
   }
 
+  /**
+   * Procesa la actualización del Store y decide si redibujar o solo mover el foco
+   */
+  private handleStoreUpdate(state: AppState): void {
+    if (!this.productList || !document.body.contains(this.productList)) {
+      console.log("Products: El componente no está visible en el DOM, ignorando renderizado de fondo.");
+      return;
+    }
+
+    const filteredProducts = this.getFilteredProducts(state);
+
+    // Bandera para detectar si el catálogo se cargó por primera vez
+    const catalogHasLoaded = state.productsCatalog.length > 0 && this.lastProductsLength === 0;
+
+    // Evaluamos si cambió el término de búsqueda, la categoría seleccionada o el catálogo base
+    if (
+      state.searchQuery !== this.lastSearchQuery || 
+      state.selectedCategory !== this.lastSelectedCategory ||
+      catalogHasLoaded
+    ) {
+      // Sincronizamos las banderas de control local
+      this.lastSearchQuery = state.searchQuery;
+      this.lastSelectedCategory = state.selectedCategory;
+      this.lastProductsLength = state.productsCatalog.length;
+
+      // Renderizamos únicamente la porción de productos filtrados
+      this.renderList(filteredProducts);
+    }
+
+    // Mover el foco visual (esto corre siempre de manera fluida)
+    this.updateFocusedProduct(state.focusedProductIndex);
+  }
+
+  /**
+   * 🌟 MOTOR DE FILTRADO UNIFICADO:
+   * Garantiza consistencia total con la lógica de navegación por teclado del buscador.
+   */
+  private getFilteredProducts(state: AppState): Product[] {
+    let products = state.productsCatalog;
+
+    // 1. Filtrar por categoría
+    if (state.selectedCategory !== '') {
+      products = products.filter(p => p.category_name === state.selectedCategory);
+    }
+
+    // 2. Filtrar por término de búsqueda (Query) en el nombre del producto
+    if (state.searchQuery.trim() !== '') {
+      const query = state.searchQuery.toLowerCase();
+      products = products.filter(p => p.name.toLowerCase().includes(query));
+    }
+
+    return products;
+  }
+
   private async loadProducts(): Promise<void> {
-   if (!this.productList) return;
+    if (!this.productList) return;
 
-   try {
-     // Si hay productos en el catálogo evitamos volver a llamar a la API
-     if (storeGlobal.get().productsCatalog.length > 0) {
-       this.productList.innerHTML = ""; 
-       const state = storeGlobal.get();
+    try {
+      const state = storeGlobal.get();
 
-       
-       this.lastSearchQuery = state.searchQuery;
-       this.lastSelectedCategory = state.selectedCategory;
-       this.lastProductsLength = state.productsCatalog.length; 
-
-       this.renderList(state.productsCatalog, state.searchQuery, state.selectedCategory);
-       return;
-     }
-     
-     const products: Product[] = await window.paletteAPI.Products.getProducts();
-     this.productList.innerHTML = ""; 
-
-     // Al hacer el update, la suscripción se encargará de sincronizar las banderas en su propio flujo
-     storeGlobal.update({ productsCatalog: products });
-
-   } catch (error) {
-     console.error("Error al cargar productos:", error);
-     this.productList.innerHTML = `<p class="error-text">Error al cargar productos.</p>`;
-   }
-}
-
-    // Renderizar productos
-    private renderList (products: Product[], searchQuery: string, selectedCategory: string): void {
-
-      console.log("Volviendo a renderizar")
-
-      
-      if (!this.productList){
-        console.log("No hay productos que mostrar")
-        return
-      } 
-
-      this.productList.innerHTML = ""; // Limpiamos el mensaje de carga
-
-      if (products.length === 0) {
-          this.productList.innerHTML = `<p class="null-text">No hay productos registrados.</p>`;
-          return;
-        }
-      
-      // Verificamos si hay input en la barra de busqueda y renderizamos el filtro
-      if(searchQuery  && searchQuery.trim() !== '') {
-          console.log("Filtrando productos por búsqueda:", searchQuery);
-          products = products.filter(product => 
-            product.name.toLowerCase().includes(searchQuery.toLowerCase()) 
-          );
-        }
-
-      if (selectedCategory && selectedCategory.trim() !== '') {
-          console.log("Filtrando productos por categoría:", selectedCategory);
-          products = products.filter(product => 
-          product.category_name.toLowerCase().trim() === selectedCategory.toLowerCase().trim()
-        );
-      }
-
-      if (products.length === 0) {
-        this.productList.innerHTML = `<p class="null-text">No hay productos que coincidan con los filtros.</p>`;
-         return;
-      }
-
-        products.forEach((product, index )=> {
-          
+      // Si los productos ya están en memoria, no tocamos la base de datos (SQLite / API)
+      if (state.productsCatalog.length > 0) {
+        this.productList.innerHTML = "";
         
-          const productCard = document.createElement('div') as HTMLDivElement;
-          
-          productCard.dataset.id = product.id.toString();
+        this.lastSearchQuery = state.searchQuery;
+        this.lastSelectedCategory = state.selectedCategory;
+        this.lastProductsLength = state.productsCatalog.length;
 
-          const categoryClass = `cat-${product.category_name.toLowerCase().trim()}`;
-          productCard.className = `product-card ${categoryClass}`;
+        const filtered = this.getFilteredProducts(state);
+        this.renderList(filtered);
+        return;
+      }
+      
+      const products: Product[] = await window.paletteAPI.Products.getProducts();
+      this.productList.innerHTML = ""; 
 
-          productCard.innerHTML = `
-            <div class="product-info">
-              <span class="product-name">${product.name}</span>
-              <span class="product-category-name">${product.category_name}</span> 
-            </div>
-            <div class="product-price-badge">$${product.price}</div>
-          `;
+      // Al actualizar, la suscripción reactiva se encarga del renderizado
+      storeGlobal.update({ productsCatalog: products });
 
-          productCard.addEventListener('click', () => {
-          // 1. Sincronización visual opcional: 
-          // Si haces clic, es buena UX que el índice del teclado se mueva a esta tarjeta
-          storeGlobal.update({ focusedProductIndex: index });
+    } catch (error) {
+      console.error("Error al cargar productos:", error);
+      this.productList.innerHTML = `<p class="error-text">Error al cargar el catálogo de productos.</p>`;
+    }
+  }
+
+  /**
+   * Renderiza la lista pre-filtrada.
+   * Cero listeners individuales; utiliza una estructura de datos limpia en HTML dinámico.
+   */
+  private renderList(products: Product[]): void {
+    if (!this.productList) return;
+
+    this.productList.innerHTML = ""; // Limpiar spinner de carga o estado previo
+
+    if (products.length === 0) {
+      this.productList.innerHTML = `<p class="null-text">No hay productos que coincidan con los filtros.</p>`;
+      return;
+    }
+
+    let html = "";
+    products.forEach((product) => {
+      const categoryClass = `cat-${product.category_name.toLowerCase().trim()}`;
+      
+      html += `
+        <div class="product-card ${categoryClass}" data-id="${product.id}">
+          <div class="product-info">
+            <span class="product-name">${product.name}</span>
+            <span class="product-category-name">${product.category_name}</span> 
+          </div>
+          <div class="product-price-badge">$${product.price}</div>
+        </div>
+      `;
+    });
+
+    this.productList.innerHTML = html;
+  }
+
+  /**
+   * Manejador delegado de clics para las tarjetas de producto.
+   * Evita fugas de memoria al estar anclado permanentemente al contenedor padre.
+   */
+  private handleProductClick = (e: Event): void => {
+    const target = e.target as HTMLElement;
+    const card = target.closest('.product-card') as HTMLDivElement | null;
+
+    if (card) {
+      const productId = parseInt(card.getAttribute('data-id') || '0', 10);
+      const product = storeGlobal.get().productsCatalog.find(p => p.id === productId);
+
+      if (product) {
+        const currentScreen = storeGlobal.get().currentScreen;
+        if (currentScreen === 'home') {
           storeGlobal.addProductToCart(product);
+        } else if (currentScreen === 'editDelete') {
+          storeGlobal.update({ selectedProductForEdit: product });
+        }
+        console.log("Producto seleccionado por CLIC delegado:", product);
+      }
+    }
+  };
 
-          // 2. Despachas el producto al flujo del carrito
-          console.log("Producto seleccionado por CLIC directamente al Store:", product);
-        });
+  /**
+   * Actualiza el enfoque visual (.focused) del producto seleccionado
+   */
+  private updateFocusedProduct(focusedIndex: number): void {
+    if (!this.productList) return;
+    const productCards = this.productList.querySelectorAll('.product-card');
 
-          this.productList!.appendChild(productCard);
-        });
+    productCards.forEach((card, index) => {
+      if (index === focusedIndex) {
+        card.classList.add('focused');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });            
+      } else {
+        card.classList.remove('focused');
+      }
+    });
+  }
 
+  /**
+   * 🌟 DESTRUCTOR PÚBLICO:
+   * Apaga la suscripción al store y desmonta de raíz los listeners del DOM
+   */
+  public destroy(): void {
+    // 1. Limpiar el listener delegado del contenedor
+    if (this.productList) {
+      this.productList.removeEventListener('click', this.handleProductClick);
     }
 
-    private updateFocusedProduct(focusedIndex: number): void {
-      if (!this.productList) return;
-        const productCards = this.productList.querySelectorAll('.product-card');
-
-        productCards.forEach((card, index) => {
-          if (index === focusedIndex) {
-            card.classList.add('focused');
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });            
-          } else {
-            card.classList.remove('focused');
-          }
-        });
+    // 2. Cancelar de forma segura la suscripción activa al Store
+    if (this.unsubscribeStore) {
+      console.log("Products: Cancelando suscripción al Store para prevenir fugas de memoria.");
+      this.unsubscribeStore();
+      this.unsubscribeStore = null;
     }
+  }
 }

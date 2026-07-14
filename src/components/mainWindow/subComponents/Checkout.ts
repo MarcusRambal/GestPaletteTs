@@ -5,7 +5,16 @@ export class Checkout {
   private containerElement: HTMLDivElement | null = null;
   private unsubscribeStore: (() => void) | null = null;
 
+  // Guardamos referencias a los inputs dinámicos actuales para limpiarlos
+  private activeInputCash: HTMLInputElement | null = null;
+  private activeInputCard: HTMLInputElement | null = null;
+
+  constructor() {}
+
   render(subContainer: HTMLElement): void {
+    // 🌟 Limpieza preventiva antes de renderizar
+    this.destroy();
+
     subContainer.innerHTML = `
       <div class="checkout-container">
         <div class="checkout-summary">
@@ -18,14 +27,13 @@ export class Checkout {
         <div class="payment-methods-box">
           <label>Método de Pago:</label>
           <div class="payment-buttons">
-            <button class="btn-pay-method active" data-method="efectivo">💵 Efectivo</button>
+            <button class="btn-pay-method" data-method="efectivo">💵 Efectivo</button>
             <button class="btn-pay-method" data-method="tarjeta">💳 Tarjeta</button>
             <button class="btn-pay-method" data-method="hibrido">🔄 Híbrido</button>
           </div>
         </div>
 
-        <div id="payment-inputs-container" class="payment-inputs">
-          </div>
+        <div id="payment-inputs-container" class="payment-inputs"></div>
 
         <div class="change-box">
           <span>Cambio (Vuelto):</span>
@@ -41,13 +49,9 @@ export class Checkout {
     if (this.containerElement) {
       this.initEventListeners();
       
-      // Render inicial y suscripción reactiva
+      // Render inicial y suscripción reactiva descendente impecable
       this.updateCheckoutView(storeGlobal.get());
       this.unsubscribeStore = storeGlobal.subscribe((state) => {
-        if (state.currentScreen !== 'home') {
-          this.destroy();
-          return;
-        }
         this.updateCheckoutView(state);
       });
     }
@@ -56,36 +60,62 @@ export class Checkout {
   private initEventListeners(): void {
     if (!this.containerElement) return;
 
-    // Listener para cambiar el método de pago mediante clicks
-    const methodButtons = this.containerElement.querySelectorAll('.btn-pay-method');
-    methodButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const method = btn.getAttribute('data-method') as 'efectivo' | 'tarjeta' | 'hibrido';
-        
-        // Reset de montos al cambiar de método
-        storeGlobal.update({ 
-          paymentMethod: method,
-          amountCash: 0,
-          amountCard: 0
-        });
-      });
-    });
+    // 🌟 1. Delegación de eventos para la selección de método de pago
+    const paymentButtonsContainer = this.containerElement.querySelector('.payment-buttons');
+    paymentButtonsContainer?.addEventListener('click', this.handlePaymentMethodChange);
 
-    // Botón definitivo de Facturar
+    // 🌟 2. Delegación de entrada de datos (inputs dinámicos)
+    const inputsContainer = this.containerElement.querySelector('#payment-inputs-container');
+    inputsContainer?.addEventListener('input', this.handleInputPayment);
+
+    // 3. Botón de facturar
     const btnFacturar = this.containerElement.querySelector('#btn-facturar') as HTMLButtonElement;
-    btnFacturar.addEventListener('click', () => this.procesarFacturacion());
+    btnFacturar?.addEventListener('click', this.procesarFacturacion);
   }
+
+  /**
+   * Maneja el clic en los botones de método de pago (Delegado)
+   */
+  private handlePaymentMethodChange = (e: Event): void => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest('.btn-pay-method') as HTMLButtonElement | null;
+    
+    if (btn) {
+      e.stopPropagation();
+      const method = btn.getAttribute('data-method') as 'efectivo' | 'tarjeta' | 'hibrido';
+      
+      storeGlobal.update({ 
+        paymentMethod: method,
+        amountCash: 0,
+        amountCard: 0
+      });
+    }
+  };
+
+  /**
+   * Maneja la escritura en los inputs de pago (Delegado)
+   * Evita fugas de memoria al no colgar listeners individuales a inputs que mueren.
+   */
+  private handleInputPayment = (e: Event): void => {
+    const target = e.target as HTMLInputElement;
+    const value = parseFloat(target.value) || 0;
+
+    if (target.id === 'input-cash') {
+      storeGlobal.update({ amountCash: value });
+    } else if (target.id === 'input-card') {
+      storeGlobal.update({ amountCard: value });
+    }
+  };
 
   private updateCheckoutView(state: AppState): void {
     if (!this.containerElement) return;
 
-    // 1. Calcular el Total Matemático en caliente
     const total = state.selectedProducts.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
     
-    // Actualizar labels en la UI
+    // Actualizar labels
     this.containerElement.querySelector('#checkout-total')!.textContent = `$${total}`;
 
-    // 2. Gestionar clases de botones activos
+    // Actualizar clases activas en los botones de pago
     const methodButtons = this.containerElement.querySelectorAll('.btn-pay-method');
     methodButtons.forEach(btn => {
       if (btn.getAttribute('data-method') === state.paymentMethod) {
@@ -95,10 +125,10 @@ export class Checkout {
       }
     });
 
-    // 3. Re-renderizar cajas de texto de pago dinámicamente si es necesario
+    // Re-renderizar o actualizar inputs dinámicos de pago
     this.renderDynamicInputs(state, total);
 
-    // 4. Calcular el vuelto y validez de la factura
+    // Cálculos de vuelto
     let cashback = 0;
     let isEnoughCash = false;
 
@@ -106,29 +136,31 @@ export class Checkout {
       cashback = state.amountCash - total;
       isEnoughCash = state.amountCash >= total;
     } else if (state.paymentMethod === 'tarjeta') {
-      cashback = 0; // Tarjeta cobra exacto por IPC de datáfono/pasarela externa
+      cashback = 0;
       isEnoughCash = total > 0; 
     } else if (state.paymentMethod === 'hibrido') {
       const totalPayment = state.amountCash + state.amountCard;
       cashback = totalPayment - total;
-      // En híbrido no se permite dar vuelto de más en tarjeta; el total pagado debe ser exacto o dar vuelto solo del efectivo
       isEnoughCash = totalPayment >= total && state.amountCard <= total;
     }
 
     const changeLabel = this.containerElement.querySelector('#checkout-change')!;
     changeLabel.textContent = cashback >= 0 ? `$${cashback}` : `$0 (Falta dinero)`;
     
-    // Control de bloqueo del botón
+    // Control de bloqueo del botón facturar
     const btnFacturar = this.containerElement.querySelector('#btn-facturar') as HTMLButtonElement;
-    btnFacturar.disabled = !isEnoughCash || state.selectedProducts.length === 0;
+    if (btnFacturar) {
+      btnFacturar.disabled = !isEnoughCash || state.selectedProducts.length === 0;
+    }
   }
 
   private renderDynamicInputs(state: AppState, total: number): void {
-    const inputsContainer = this.containerElement!.querySelector('#payment-inputs-container')!;
+    const inputsContainer = this.containerElement!.querySelector('#payment-inputs-container') as HTMLDivElement | null;
+    if (!inputsContainer) return;
     
-    // Para evitar parpadeos y pérdida de foco mientras se escribe, verificamos si la estructura básica ya está armada
     const currentRenderedMethod = inputsContainer.getAttribute('data-current-method');
     
+    // Si cambió el método de pago, recreamos el HTML interno (seguro porque usamos delegación de eventos)
     if (currentRenderedMethod !== state.paymentMethod) {
       inputsContainer.setAttribute('data-current-method', state.paymentMethod);
       
@@ -143,7 +175,7 @@ export class Checkout {
         inputsContainer.innerHTML = `
           <div class="input-group">
             <label>Monto Tarjeta (Automático):</label>
-            <input type="number" value="${total}" disabled>
+            <input type="number" id="input-card-disabled" value="${total}" disabled>
           </div>
         `;
       } else if (state.paymentMethod === 'hibrido') {
@@ -160,28 +192,29 @@ export class Checkout {
           </div>
         `;
       }
+    } else {
+      // 🌟 PREVENCIÓN DE PÉRDIDA DE FOCO: Si el método es el mismo, solo actualizamos los valores de forma directa
+      // Esto evita renderizar de nuevo y que el input pierda la posición del cursor mientras escribes.
+      const cashInput = inputsContainer.querySelector('#input-cash') as HTMLInputElement | null;
+      const cardInput = inputsContainer.querySelector('#input-card') as HTMLInputElement | null;
+      const cardDisabledInput = inputsContainer.querySelector('#input-card-disabled') as HTMLInputElement | null;
 
-      // Colgar listeners a los nuevos inputs generados
-      const inputCash = inputsContainer.querySelector('#input-cash') as HTMLInputElement | null;
-      const inputCard = inputsContainer.querySelector('#input-card') as HTMLInputElement | null;
-
-      inputCash?.addEventListener('input', () => {
-        storeGlobal.update({ amountCash: parseFloat(inputCash.value) || 0 });
-      });
-
-      inputCard?.addEventListener('input', () => {
-        storeGlobal.update({ amountCard: parseFloat(inputCard.value) || 0 });
-      });
+      if (cashInput && document.activeElement !== cashInput) {
+        cashInput.value = state.amountCash ? state.amountCash.toString() : '';
+      }
+      if (cardInput && document.activeElement !== cardInput) {
+        cardInput.value = state.amountCard ? state.amountCard.toString() : '';
+      }
+      if (cardDisabledInput) {
+        cardDisabledInput.value = total.toString();
+      }
     }
   }
 
-  private async procesarFacturacion(): Promise<void> {
+  private procesarFacturacion = async (): Promise<void> => {
     const state = storeGlobal.get();
     console.log("Iniciando despacho de factura a SQLite via IPC...", state.selectedProducts);
     
-    // Aquí irá tu canal IPC en el futuro: window.paletteAPI.Facturas.save(...)
-    
-    // Limpieza post-venta del POS exitosa:
     storeGlobal.update({
       selectedProducts: [],
       amountCash: 0,
@@ -190,10 +223,28 @@ export class Checkout {
     });
     
     alert("¡Factura procesada con éxito!");
-  }
+  };
 
-  private destroy(): void {
+  /**
+   * 🌟 EL DESTRUCTOR PÚBLICO:
+   * Limpia de forma segura todas las suscripciones y listeners delegados
+   */
+  public destroy(): void {
+    if (this.containerElement) {
+      // Desvincular listeners delegados del DOM
+      const paymentButtonsContainer = this.containerElement.querySelector('.payment-buttons');
+      paymentButtonsContainer?.removeEventListener('click', this.handlePaymentMethodChange);
+
+      const inputsContainer = this.containerElement.querySelector('#payment-inputs-container');
+      inputsContainer?.removeEventListener('input', this.handleInputPayment);
+
+      const btnFacturar = this.containerElement.querySelector('#btn-facturar');
+      btnFacturar?.removeEventListener('click', this.procesarFacturacion);
+    }
+
+    // Apagar la suscripción del Store
     if (this.unsubscribeStore) {
+      console.log("Checkout Component: Desuscribiendo del Store de manera limpia.");
       this.unsubscribeStore();
       this.unsubscribeStore = null;
     }

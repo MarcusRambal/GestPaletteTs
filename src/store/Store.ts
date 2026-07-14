@@ -12,7 +12,8 @@ export interface AppState {
   searchQuery: string;
   categoriesCatalog: Category[]; 
   selectedCategory: string;
-
+  selectedProductForEdit: Product | null;
+  
   //Table
   selectedProducts:CartItem[];
 
@@ -145,6 +146,7 @@ export const storeGlobal = new Store({
   categoriesCatalog: [],
   facturasCargadas: [],
   selectedProducts: [],
+  selectedProductForEdit: null,
   paymentMethod: 'efectivo',
   amountCash: 0,
   amountCard: 0,
