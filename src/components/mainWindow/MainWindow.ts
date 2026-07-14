@@ -3,23 +3,31 @@ import { Products } from './subComponents/Products.js';
 import { Table } from './subComponents/Table.js';
 import { Checkout } from './subComponents/Checkout.js';
 
-
 export class MainWindow {
-  // 1. Declaramos las propiedades de la clase con sus respectivos tipos
-  private search: Search | null = null;
-  private products: Products | null = null;
-  private table: Table | null = null;
-  private checkout: Checkout | null = null;
+  private search: Search;
+  private products: Products;
+  
+  // 🌟 Instanciamos los componentes exclusivos una sola
+  private table: Table;
+  private checkout: Checkout;
+
+  //Recibimos las instancias únicas compartidas por el Router
+  constructor(searchInstance: Search, productsInstance: Products) {
+    this.search = searchInstance;
+    this.products = productsInstance;
+
+    // 🌟 Creamos las instancias exclusivas de forma segura en el constructor
+    this.table = new Table();
+    this.checkout = new Checkout();
+  }
 
   render(container: HTMLElement): void {
-    // Inyectamos la estructura base del layout
     container.innerHTML = `
       <div class="main-window-container"> 
         <div class="left-panel">
           <div id="search-container"></div>
           <div id="products-container"></div> 
         </div>
-
         <div class="right-panel">
           <div id="table-container"></div>
           <div id="checkout-container"></div>
@@ -27,39 +35,32 @@ export class MainWindow {
       </div>
     `;
 
-    // 2. Capturamos los sub-contenedores asegurando su tipo
     const searchContainer = container.querySelector('#search-container') as HTMLDivElement | null;
     const productsContainer = container.querySelector('#products-container') as HTMLDivElement | null;
     const tableContainer = container.querySelector("#table-container") as HTMLDivElement | null;
     const checkoutContainer = container.querySelector("#checkout-container") as HTMLDivElement | null;
 
-    // 3. Renderizamos los subcomponentes de forma segura con una validación
-    if (searchContainer) {
-      this.search = new Search();
-      this.search.render(searchContainer);
-    } else {
-      console.error("MainWindow Error: No se encontró '#search-container' en el DOM.");
-    }
+    // Renderizado limpio en sus respectivos contenedores
+    if (searchContainer) this.search.render(searchContainer);
+    if (productsContainer) this.products.render(productsContainer);
+    if (tableContainer) this.table.render(tableContainer);
+    if (checkoutContainer) this.checkout.render(checkoutContainer);
+  }
 
-    if (productsContainer) {
-      this.products = new Products();
-      this.products.render(productsContainer);
-    } else {
-      console.error("MainWindow Error: No se encontró '#products-container' en el DOM.");
+  /**
+   * 🌟 PROPAGACIÓN DE LIMPIEZA:
+   * Cuando el Router destruye MainWindow, esta se encarga de apagar
+   * las suscripciones de sus componentes exclusivos.
+   */
+  public destroy(): void {
+    console.log("[MainWindow] Propagando destrucción a Table y Checkout...");
+    
+    if (typeof this.table.destroy === 'function') {
+      this.table.destroy();
     }
-
-    if(tableContainer) {
-      this.table = new Table();
-      this.table.render(tableContainer);
-    }else{
-      console.error("MainWindow Error: No se encontró '#table-container' en el DOM.")
-    }
-
-    if(checkoutContainer) {
-      this.checkout = new Checkout();
-      this.checkout.render(checkoutContainer)
-    }else {
-      console.error("MainWindow Error: No se encontró '#payment-container' en el DOM.")
+    
+    if (typeof this.checkout.destroy === 'function') {
+      this.checkout.destroy();
     }
   }
 }
