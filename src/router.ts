@@ -80,13 +80,13 @@ export class Router {
 
       case "editDelete":
         // 1. Propagar destrucción interna de EditDelete si tuviera métodos propios
-        /*
+
         if (typeof this.editDeleteView.destroy === 'function') {
           this.editDeleteView.destroy();
         }
         // 2. Apagar las suscripciones de los componentes compartidos inyectados
         this.destroySharedComponents();
-        */
+
         break;
 
       case "create":
