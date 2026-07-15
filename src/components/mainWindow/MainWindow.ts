@@ -7,21 +7,20 @@ export class MainWindow {
   private search: Search;
   private products: Products;
   
-  // 🌟 Instanciamos los componentes exclusivos una sola
-  private table: Table;
-  private checkout: Checkout;
+  // 🌟 Las referencias se inicializan en null de forma segura
+  private table: Table | null = null;
+  private checkout: Checkout | null = null;
 
-  //Recibimos las instancias únicas compartidas por el Router
+  // Recibimos únicamente las instancias compartidas por el Router
   constructor(searchInstance: Search, productsInstance: Products) {
     this.search = searchInstance;
     this.products = productsInstance;
-
-    // 🌟 Creamos las instancias exclusivas de forma segura en el constructor
-    this.table = new Table();
-    this.checkout = new Checkout();
   }
 
   render(container: HTMLElement): void {
+    // 🌟 1. Limpieza preventiva antes de renderizar la nueva vista
+    this.destroy();
+
     container.innerHTML = `
       <div class="main-window-container"> 
         <div class="left-panel">
@@ -40,27 +39,42 @@ export class MainWindow {
     const tableContainer = container.querySelector("#table-container") as HTMLDivElement | null;
     const checkoutContainer = container.querySelector("#checkout-container") as HTMLDivElement | null;
 
-    // Renderizado limpio en sus respectivos contenedores
+    // 🌟 2. Instanciación "perezosa" (on-demand)
+    if (tableContainer) {
+      this.table = new Table();
+      this.table.render(tableContainer);
+    }
+    
+    if (checkoutContainer) {
+      this.checkout = new Checkout();
+      this.checkout.render(checkoutContainer);
+    }
+
+    // Renderizado de las instancias compartidas
     if (searchContainer) this.search.render(searchContainer);
     if (productsContainer) this.products.render(productsContainer);
-    if (tableContainer) this.table.render(tableContainer);
-    if (checkoutContainer) this.checkout.render(checkoutContainer);
   }
 
   /**
-   * 🌟 PROPAGACIÓN DE LIMPIEZA:
-   * Cuando el Router destruye MainWindow, esta se encarga de apagar
-   * las suscripciones de sus componentes exclusivos.
+   * 🌟 PROPAGACIÓN DE LIMPIEZA SIMÉTRICA:
+   * Cuando el Router desmonta MainWindow, destruimos las vistas locales
+   * y liberamos sus referencias para el recolector de basura.
    */
   public destroy(): void {
-    console.log("[MainWindow] Propagando destrucción a Table y Checkout...");
+    if (!this.table && !this.checkout) return;
+
+    console.log("[MainWindow] Propagando destrucción simétrica a Table y Checkout...");
     
-    if (typeof this.table.destroy === 'function') {
+    if (this.table && typeof this.table.destroy === 'function') {
       this.table.destroy();
     }
     
-    if (typeof this.checkout.destroy === 'function') {
+    if (this.checkout && typeof this.checkout.destroy === 'function') {
       this.checkout.destroy();
     }
+
+    // 🌟 3. Anulación de referencias (Garantiza liberación de RAM)
+    this.table = null;
+    this.checkout = null;
   }
 }
