@@ -11,41 +11,65 @@ export class EditDelete {
 
   // Referencias para el desmontado limpio de eventos
   private formElement: HTMLFormElement | null = null;
-  private deleteBtnElement: HTMLButtonElement | null = null;
+  private actionBtnElement: HTMLButtonElement | null = null;
 
   // Bindeamos los métodos para poder agregarlos y removerlos con total seguridad
   private handleSubmitBound = this.handleSubmit.bind(this);
-  private handleDeleteBound = this.handleDelete.bind(this);
+  private handleToggleActiveBound = this.handleToggleActive.bind(this);
 
   // ID del producto activo bajo edición
   private activeProductId: number | null = null;
+  private isEditingInactive: boolean = false;
 
   constructor(searchInstance: Search, productsInstance: Products) {
     this.searchComponent = searchInstance;
     this.productsComponent = productsInstance;
   }
 
-  render(mainContainer: HTMLElement): void {
+  async render(mainContainer: HTMLElement): Promise<void> {
     // 🌟 Limpieza preventiva de seguridad al renderizar
     this.destroy();
-    
     this.container = mainContainer;
+
+    const state = storeGlobal.get();
+    if (!state.disabledProducts || state.disabledProducts.length === 0) {
+      try {
+        console.log("[EditDelete] Cargando catálogo de productos inactivos por primera vez...");
+        const inactiveFromDB = await window.paletteAPI.Products.getDisabledProducts();
+        storeGlobal.update({ disabledProducts: inactiveFromDB });
+      } catch (error) {
+        console.error("Error al cargar productos desactivados:", error);
+      }
+    }
+
+    storeGlobal.update({
+      filteredCatalog: storeGlobal.get().productsCatalog,
+      selectedProductForEdit: null
+    });
 
     // 1. Estructuramos la pantalla dividida (Split Screen)
     mainContainer.innerHTML = `
       <div class="edit-delete-layout">
         <div class="management-sidebar">
+          <div class="sidebar-toggle-bar">
+            <button id="btn-show-active" class="toggle-tab active">Activos</button>
+            <button id="btn-show-inactive" class="toggle-tab">Inactivos (<span id="inactive-count">0</span>)</button>
+          </div>
           <div id="search-slot"></div>
           <div id="products-slot"></div>
         </div>
 
         <div class="management-form-panel" id="edit-form-slot">
           <div class="empty-state-notice">
-            <p>🔍 Selecciona un producto de la lista con las flechas o un clic para editar sus propiedades o eliminarlo.</p>
+            <p>🔍 Selecciona un producto para editar sus propiedades o cambiar su estado.</p>
           </div>
         </div>
       </div>
     `;
+
+    this.updateInactiveCounter();
+    this.setupTabEvents();
+    
 
     // 2. Inyectamos los componentes existentes en sus respectivos slots
     const searchSlot = mainContainer.querySelector('#search-slot') as HTMLElement;
@@ -62,6 +86,39 @@ export class EditDelete {
 
     // Carga inicial por si ya había uno seleccionado
     this.renderEditForm(storeGlobal.get().selectedProductForEdit);
+  }
+
+  private updateInactiveCounter(): void {
+    const counter = this.container?.querySelector('#inactive-count');
+    if (counter) {
+      counter.textContent = (storeGlobal.get().disabledProducts?.length || 0).toString();
+    }
+  }
+
+
+  private setupTabEvents(): void {
+    const btnActive = this.container?.querySelector('#btn-show-active');
+    const btnInactive = this.container?.querySelector('#btn-show-inactive');
+
+    btnActive?.addEventListener('click', () => {
+      btnActive.classList.add('active');
+      btnInactive?.classList.remove('active');
+      // 🌟 Cambiamos el catálogo del visualizador al catálogo activo
+      storeGlobal.update({ 
+        filteredCatalog: storeGlobal.get().productsCatalog,
+        selectedProductForEdit: null // Limpiamos selección al cambiar de pestaña
+      });
+    });
+
+    btnInactive?.addEventListener('click', () => {
+      btnInactive.classList.add('active');
+      btnActive?.classList.remove('active');
+      // 🌟 Cambiamos el catálogo del visualizador a los productos inactivos
+      storeGlobal.update({ 
+        filteredCatalog: storeGlobal.get().disabledProducts || [],
+        selectedProductForEdit: null
+      });
+    });
   }
 
   private renderEditForm(product: Product | null): void {
@@ -82,30 +139,40 @@ export class EditDelete {
     }
 
     this.activeProductId = product.id;
+    this.isEditingInactive = product.active === 0;
+
+    const actionBtnText = this.isEditingInactive ? "🟢 Reactivar Producto" : "🔴 Desactivar Producto";
+    const actionBtnClass = this.isEditingInactive ? "btn-success" : "btn-danger";
+    const isDisabledAttr = this.isEditingInactive ? 'disabled' : '';
 
     // Dibujamos el formulario pre-cargado
     formSlot.innerHTML = `
-      <div class="edit-product-card">
-        <h3>✏️ Editar Producto: <span class="highlight">${product.name}</span></h3>
-        <form id="edit-product-form" class="editor-form">
+      <div class="edit-product-card ${this.isEditingInactive ? 'inactive-card-border' : ''}">
+        <h3>✏️ Editar Producto: <span class="highlight">${product.name}</span> ${this.isEditingInactive ? '<span class="badge-inactive">(Inactivo)</span>' : ''}</h3>
+        <form id="edit-product-form" class="editor-form ${this.isEditingInactive ? 'form-disabled' : ''}">
+          
           <div class="form-group">
             <label for="edit-prod-name">Nombre del Producto</label>
-            <input type="text" id="edit-prod-name" value="${product.name}" required>
+            <input type="text" id="edit-prod-name" value="${product.name}" required ${isDisabledAttr}>
+            ${this.isEditingInactive ? '<small class="form-help">Reactiva el producto para poder modificar su nombre.</small>' : ''}
           </div>
 
           <div class="form-group">
             <label for="edit-prod-price">Precio ($)</label>
-            <input type="number" id="edit-prod-price" value="${product.price}" required min="0">
+            <input type="number" id="edit-prod-price" value="${product.price}" required min="0" ${isDisabledAttr}>
+            ${this.isEditingInactive ? '<small class="form-help">Reactiva el producto para poder modificar su precio.</small>' : ''}
           </div>
 
           <div class="form-group">
-            <label for="edit-prod-category">Categoría Actual: <strong>${product.category_name}</strong></label>
-            <select id="edit-prod-category" required></select>
+            <label for="edit-prod-category">Categoría</label>
+            <select id="edit-prod-category" required ${isDisabledAttr}></select>
+            ${this.isEditingInactive ? '<small class="form-help">Reactiva el producto para poder cambiar su categoría.</small>' : ''}
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-save">Guardar Cambios</button>
-            <button type="button" id="btn-delete-prod" class="btn-danger">Desactivar Producto</button>
+            <!-- 🌟 Ocultamos o deshabilitamos el botón de guardar si está inactivo -->
+            ${!this.isEditingInactive ? '<button type="submit" class="btn-save">Guardar Cambios</button>' : ''}
+            <button type="button" id="btn-toggle-active" class="${actionBtnClass}">${actionBtnText}</button>
           </div>
         </form>
       </div>
@@ -123,7 +190,7 @@ export class EditDelete {
 
     // Guardar referencias físicas de los nuevos nodos del formulario
     this.formElement = formSlot.querySelector('#edit-product-form');
-    this.deleteBtnElement = formSlot.querySelector('#btn-delete-prod');
+    this.actionBtnElement = formSlot.querySelector('#btn-toggle-active');
 
     // Escuchar eventos de forma segura
     this.setupFormEvents();
@@ -133,8 +200,8 @@ export class EditDelete {
     if (this.formElement) {
       this.formElement.addEventListener('submit', this.handleSubmitBound);
     }
-    if (this.deleteBtnElement) {
-      this.deleteBtnElement.addEventListener('click', this.handleDeleteBound);
+    if (this.actionBtnElement) {
+      this.actionBtnElement.addEventListener('click', this.handleToggleActiveBound);
     }
   }
 
@@ -143,9 +210,9 @@ export class EditDelete {
       this.formElement.removeEventListener('submit', this.handleSubmitBound);
       this.formElement = null;
     }
-    if (this.deleteBtnElement) {
-      this.deleteBtnElement.removeEventListener('click', this.handleDeleteBound);
-      this.deleteBtnElement = null;
+    if (this.actionBtnElement) {
+      this.actionBtnElement.removeEventListener('click', this.handleToggleActiveBound);
+      this.actionBtnElement = null;
     }
   }
 
@@ -265,6 +332,7 @@ export class EditDelete {
   /**
    * ACCIÓN 2: Desactivar Producto (Borrado Lógico)
    */
+/*
   private async handleDelete(): Promise<void> {
     if (!this.activeProductId) return;
 
@@ -294,6 +362,74 @@ export class EditDelete {
       } catch (error) {
         console.error("Error al desactivar el producto:", error);
         alert("Ocurrió un error al intentar desactivar el producto.");
+      }
+    }
+  }
+*/
+
+  private async handleToggleActive(): Promise<void> {
+    if (!this.activeProductId) return;
+
+    const state = storeGlobal.get();
+    const productToChange = this.isEditingInactive 
+      ? state.disabledProducts?.find(p => p.id === this.activeProductId)
+      : state.productsCatalog.find(p => p.id === this.activeProductId);
+
+    if (!productToChange) return;
+
+    const newActiveState = this.isEditingInactive ? 1 : 0;
+    const confirmMessage = this.isEditingInactive
+      ? `¿Deseas reactivar "${productToChange.name}" y devolverlo al catálogo de ventas?`
+      : `¿Estás seguro de que deseas desactivar "${productToChange.name}" del menú de ventas?`;
+
+    if (confirm(confirmMessage)) {
+      try {
+        // 1. Persistencia en la Base de Datos
+        await window.paletteAPI.Products.toggleActiveState(this.activeProductId, newActiveState);
+
+        let updatedCatalog = [...state.productsCatalog];
+        let updatedDisabled = [...(state.disabledProducts || [])];
+
+        if (newActiveState === 1) {
+          // --- PROCESO DE REACTIVACIÓN ---
+          const reactivatedProduct: Product = {
+            ...productToChange,
+            active: 1
+          };
+          // Agregamos a activos y removemos de inactivos
+          updatedCatalog.push(reactivatedProduct);
+          updatedDisabled = updatedDisabled.filter(p => p.id !== this.activeProductId);
+
+          console.log(`[EditDelete] Producto "${productToChange.name}" reactivado con éxito.`);
+        } else {
+          // --- PROCESO DE DESACTIVACIÓN (Borrado Lógico) ---
+          const deactivatedProduct: Product = {
+            ...productToChange,
+            active: 0
+          };
+          // Removemos de activos y agregamos a inactivos
+          updatedCatalog = updatedCatalog.filter(p => p.id !== this.activeProductId);
+          updatedDisabled.push(deactivatedProduct);
+
+          // Limpiamos del carrito de compras si estaba ahí
+          const updatedCart = state.selectedProducts.filter(item => item.product.id !== this.activeProductId);
+          storeGlobal.update({ selectedProducts: updatedCart });
+
+          console.log(`[EditDelete] Producto "${productToChange.name}" desactivado con éxito.`);
+        }
+
+        // 2. Actualización atómica en el Store Global
+        storeGlobal.update({
+          productsCatalog: updatedCatalog,
+          disabledProducts: updatedDisabled,
+          selectedProductForEdit: null, // Limpiamos el formulario
+          // Refrescamos la lista de la barra lateral según la pestaña en la que estábamos
+          filteredCatalog: this.isEditingInactive ? updatedDisabled : updatedCatalog
+        });
+
+      } catch (error) {
+        console.error("Error al cambiar el estado del producto:", error);
+        alert("Ocurrió un error al procesar el cambio de estado del producto.");
       }
     }
   }

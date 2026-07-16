@@ -162,3 +162,45 @@ export function disableProduct(productId: number): Promise<void> {
     });
   });
 }
+
+export function activateProduct(productId: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE products 
+      SET active = 1 
+      WHERE id = ?
+    `;
+
+    getDB().run(query, [productId], function (err) {
+      if (err) {
+        console.error("Error al activar el producto en SQLite:", err);
+        reject(err);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+
+export function getDisabledProducts(): Promise<Product[]> {
+  return new Promise((resolve, reject) => {
+    getDB().all<Product>(
+      `SELECT
+         p.id,
+         p.name,
+         p.price,
+         p.active,
+         p.category_id,
+         c.name AS category_name
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       WHERE p.active = 0
+       ORDER BY c.name, p.name`,
+      (err, rows) => {
+        if (err) reject(err);
+        else     resolve(rows);
+      }
+    );
+  });
+}
