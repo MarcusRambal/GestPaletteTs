@@ -116,3 +116,49 @@ export function createProduct(product: {name: string;price: number;category_id: 
     });
   });
 }
+
+
+export function editProduct(productId: number, updatedData: { name: string; price: number; category_id: number; }): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE products 
+      SET name = ?, price = ?, category_id = ? 
+      WHERE id = ?
+    `;
+    
+
+    const params = [updatedData.name, updatedData.price, updatedData.category_id, productId];
+
+    getDB().run(query, params, function (err) {
+
+      if (err) {
+        console.error("Error al actualizar el producto en SQLite:", err);
+        reject(err);
+        return;
+      }
+
+      
+
+      resolve();
+    });
+  });
+} 
+
+export function disableProduct(productId: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE products 
+      SET active = 0 
+      WHERE id = ?
+    `;
+
+    getDB().run(query, [productId], function (err) {
+      if (err) {
+        console.error("Error al desactivar el producto en SQLite:", err);
+        reject(err);
+        return;
+      }
+      resolve();
+    });
+  });
+}

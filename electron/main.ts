@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { initDB, closeDB } from '../db/schema';
-import { getProducts, getCategories, createCategory, createProduct} from '../db/queries/products';
+import { getProducts, getCategories, createCategory, createProduct, editProduct, disableProduct} from '../db/queries/products';
 
 // ─── Optimizaciones de rendimiento ────────────────────────────────────────────
 // IMPORTANTE: estas flags deben llamarse ANTES de app.whenReady()
@@ -58,6 +58,28 @@ function registerIPCHandlers(): void {
       return newId; 
     } catch (error) {
       console.error("Error en el canal IPC 'create-product':", error);
+      throw error;
+    }
+  });
+
+  // 📝 Actualizar Producto Existent
+  ipcMain.handle('update-product', async (_event, productId, updatedData) => {
+    try {
+      await editProduct(productId, updatedData);
+      return; 
+    } catch (error) {
+      console.error("Error en el canal IPC 'update-product':", error);
+      throw error;
+    }
+  });
+
+  // ❌ Desactivar Producto (Borrado Lógico)
+  ipcMain.handle('delete-product', async (_event, productId) => {
+    try {
+      await disableProduct(productId);
+      return; 
+    } catch (error) {
+      console.error("Error en el canal IPC 'delete-product':", error);
       throw error;
     }
   });

@@ -13,6 +13,7 @@ export interface AppState {
   categoriesCatalog: Category[]; 
   selectedCategory: string;
   selectedProductForEdit: Product | null;
+  disabledProducts: Product[]; // Lista de productos deshabilitados (inactivos)
   
   //Table
   selectedProducts:CartItem[];
@@ -147,6 +148,7 @@ export const storeGlobal = new Store({
   facturasCargadas: [],
   selectedProducts: [],
   selectedProductForEdit: null,
+  disabledProducts: [],
   paymentMethod: 'efectivo',
   amountCash: 0,
   amountCard: 0,
