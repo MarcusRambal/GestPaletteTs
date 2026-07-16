@@ -10,6 +10,7 @@ export class Products {
   private lastSearchQuery: string | null = null;
   private lastSelectedCategory: string | null = null;
   private lastProductsLength: number = 0;
+  private lastFilteredCatalog: Product[] | null = null;
 
   constructor() {}
 
@@ -57,16 +58,20 @@ export class Products {
     // Bandera para detectar si el catálogo se cargó por primera vez
     const catalogHasLoaded = state.productsCatalog.length > 0 && this.lastProductsLength === 0;
 
+    // 🌟 Detectamos si el catálogo de origen (filteredCatalog) cambió físicamente
+    const filteredCatalogChanged = state.filteredCatalog !== this.lastFilteredCatalog;
+
     // Evaluamos si cambió el término de búsqueda, la categoría seleccionada o el catálogo base
     if (
       state.searchQuery !== this.lastSearchQuery || 
       state.selectedCategory !== this.lastSelectedCategory ||
-      catalogHasLoaded
+      catalogHasLoaded || filteredCatalogChanged
     ) {
       // Sincronizamos las banderas de control local
       this.lastSearchQuery = state.searchQuery;
       this.lastSelectedCategory = state.selectedCategory;
       this.lastProductsLength = state.productsCatalog.length;
+      this.lastFilteredCatalog = state.filteredCatalog || null;
 
       // Renderizamos únicamente la porción de productos filtrados
       this.renderList(filteredProducts);
@@ -81,7 +86,12 @@ export class Products {
    * Garantiza consistencia total con la lógica de navegación por teclado del buscador.
    */
   private getFilteredProducts(state: AppState): Product[] {
-    let products = state.productsCatalog;
+    // 🌟 Si estamos en una vista de gestión y existe filteredCatalog en el Store, 
+    // lo usamos como base de datos local. Si no, usamos el catálogo general de activos.
+    const isEditDelete = state.currentScreen === 'editDelete';
+    let products = (isEditDelete && state.filteredCatalog) 
+      ? state.filteredCatalog 
+      : state.productsCatalog;
 
     // 1. Filtrar por categoría
     if (state.selectedCategory !== '') {
@@ -110,6 +120,7 @@ export class Products {
         this.lastSearchQuery = state.searchQuery;
         this.lastSelectedCategory = state.selectedCategory;
         this.lastProductsLength = state.productsCatalog.length;
+        this.lastFilteredCatalog = state.filteredCatalog || null;
 
         const filtered = this.getFilteredProducts(state);
         this.renderList(filtered);
@@ -170,10 +181,18 @@ export class Products {
 
     if (card) {
       const productId = parseInt(card.getAttribute('data-id') || '0', 10);
-      const product = storeGlobal.get().productsCatalog.find(p => p.id === productId);
+      const state = storeGlobal.get();
+      
+      // 🌟 Buscamos de forma segura: si estamos en editDelete, buscamos en filteredCatalog 
+      // (que tiene los activos o inactivos según la pestaña). Si no, caemos a productsCatalog.
+      const sourceCatalog = (state.currentScreen === 'editDelete' && state.filteredCatalog)
+        ? state.filteredCatalog
+        : state.productsCatalog;
+
+      const product = sourceCatalog.find(p => p.id === productId);
 
       if (product) {
-        const currentScreen = storeGlobal.get().currentScreen;
+        const currentScreen = state.currentScreen;
         if (currentScreen === 'home') {
           storeGlobal.addProductToCart(product);
         } else if (currentScreen === 'editDelete') {

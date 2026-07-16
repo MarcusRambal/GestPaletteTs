@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { Product, Category } from '@app/types';
+import { Product, Category, Invoice } from '@app/types';
 
 
 // 1. Creamos el objeto con todas tus APIs tipadas de forma nativa
@@ -20,13 +20,16 @@ const paletteAPI = {
     updateProduct: async (productId: number, updatedData: { name: string; price: number; category_id: number; }): Promise<void> => {
       return await ipcRenderer.invoke('update-product', productId, updatedData);
     },
-     deleteProduct: async (productId: number): Promise<any> => {
-      return await ipcRenderer.invoke('delete-product', productId);
+    getDisabledProducts: async (): Promise<Product[]> => {
+      return await ipcRenderer.invoke('get-disabled-products');
     },
+    toggleActiveState: async (productId: number, active: number): Promise<void> => {
+      return await ipcRenderer.invoke('toggle-active-state', productId, active);
+    }
   },
   Invoice: {
-    addInvoice: async (invoice: any): Promise<any> => {
-      return await ipcRenderer.invoke('db:add-invoice', invoice);
+    createInvoice: async (invoice: Invoice): Promise<any> => {
+      return await ipcRenderer.invoke('create-invoice', invoice);
     },
     getInvoice: async (): Promise<any[]> => {
       return await ipcRenderer.invoke('db:get-invoices');

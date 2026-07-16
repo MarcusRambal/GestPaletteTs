@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { initDB, closeDB } from '../db/schema';
-import { getProducts, getCategories, createCategory, createProduct, editProduct, disableProduct} from '../db/queries/products';
-
+import { getProducts, getCategories, createCategory, createProduct, editProduct, disableProduct, activateProduct , getDisabledProducts } from '../db/queries/products';
+import { createInvoice } from '../db/queries/invoices';
+import { ensureDailySession } from '../db/queries/dailySessions';
 // ─── Optimizaciones de rendimiento ────────────────────────────────────────────
 // IMPORTANTE: estas flags deben llamarse ANTES de app.whenReady()
 
@@ -73,21 +74,42 @@ function registerIPCHandlers(): void {
     }
   });
 
-  // ❌ Desactivar Producto (Borrado Lógico)
-  ipcMain.handle('delete-product', async (_event, productId) => {
+  // 🛑 Obtener Productos Deshabilitados
+  ipcMain.handle('get-disabled-products', async () => {
     try {
-      await disableProduct(productId);
-      return; 
+      return await getDisabledProducts(); // true indica que queremos productos deshabilitados
     } catch (error) {
-      console.error("Error en el canal IPC 'delete-product':", error);
+      console.error("Error en el canal IPC 'get-disabled-products':", error);
       throw error;
     }
   });
 
-  // TODO (Fase 2):
-  // ipcMain.handle('add-product',    async (_, product) => { ... })
-  // ipcMain.handle('save-product',   async (_, product) => { ... })
-  // ipcMain.handle('delete-product', async (_, productId) => { ... })
+  // 🔄 Cambiar Estado Activo/Inactivo de un Product
+  ipcMain.handle('toggle-active-state', async (_event, productId, active) => {
+    try {
+      if (active === 0) {
+        await disableProduct(productId);
+      } else {
+        await activateProduct(productId); // Implementa esta función si deseas reactivar productos
+        console.warn(`Reactivación de producto no implementada. ID: ${productId}`);
+      }
+      return;
+    } catch (error) {
+      console.error("Error en el canal IPC 'toggle-active-state':", error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('create-invoice', async (_event, invoice) => {
+    try {
+      console.log("Factura recibida para creación:", invoice);
+      return await createInvoice(invoice);
+    } catch (error) {
+      console.error("Error en el canal IPC 'create-invoice':", error);
+      throw error;
+    }
+  });
+
 
   // TODO (Fase 3): facturas
   // ipcMain.handle('db:add-invoice',       async (_, invoice) => { ... })
@@ -147,6 +169,7 @@ app.whenReady().then(() => {
   const dbPath = path.join(app.getPath('userData'), 'gestpalette.db');
   initDB(dbPath);
 
+  ensureDailySession()
   registerIPCHandlers();
   createWindow();
 
