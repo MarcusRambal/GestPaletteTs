@@ -20,3 +20,20 @@ export interface CartItem {
   product: Product;
   quantity: number;
 }
+
+export interface InvoiceItem {
+  product_id: number;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  subtotal: number;
+}
+
+export interface Invoice {
+  total: number;
+  payment_method: 'efectivo' | 'tarjeta' | 'hibrido';
+  cash_amount: number;      
+  transfer_amount: number; 
+  cash_received: number;    
+  items: InvoiceItem[];     // Usamos el tipo individual definido arriba
+}
