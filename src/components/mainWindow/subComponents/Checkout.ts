@@ -1,5 +1,6 @@
 import { storeGlobal } from '../../../store/Store.js';
 import type { AppState } from '../../../store/Store.js';
+import type { Invoice, InvoiceItem } from '../../../../types/types.js';
 
 export class Checkout {
   private containerElement: HTMLDivElement | null = null;
@@ -70,7 +71,7 @@ export class Checkout {
 
     // 3. Botón de facturar
     const btnFacturar = this.containerElement.querySelector('#btn-facturar') as HTMLButtonElement;
-    btnFacturar?.addEventListener('click', this.procesarFacturacion);
+    btnFacturar?.addEventListener('click', this.invoiceHandler);
   }
 
   /**
@@ -211,18 +212,85 @@ export class Checkout {
     }
   }
 
-  private procesarFacturacion = async (): Promise<void> => {
+  private invoiceHandler = async (): Promise<void> => {
     const state = storeGlobal.get();
-    console.log("Iniciando despacho de factura a SQLite via IPC...", state.selectedProducts);
     
-    storeGlobal.update({
-      selectedProducts: [],
-      amountCash: 0,
-      amountCard: 0,
-      paymentMethod: 'efectivo'
-    });
-    
-    alert("¡Factura procesada con éxito!");
+    if (state.selectedProducts.length === 0) {
+      alert("No hay productos seleccionados para facturar.");
+      return;
+    }
+
+    const total = state.selectedProducts.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+
+    // 1. Mapeamos las variables de pago basándonos en tu base de datos
+    let cashAmount = 0;
+    let transferAmount = 0;
+    let cashReceived = 0;
+
+    if (state.paymentMethod === 'efectivo') {
+      cashAmount = total;
+      cashReceived = state.amountCash;
+    } else if (state.paymentMethod === 'tarjeta') {
+      transferAmount = total;
+      cashReceived = 0;
+    } else if (state.paymentMethod === 'hibrido') {
+      cashAmount = state.amountCash;
+      transferAmount = state.amountCard;
+      // En modo híbrido, el efectivo recibido para calcular el vuelto 
+      // sigue siendo lo que ingresaron en la parte de efectivo
+      cashReceived = state.amountCash; 
+    }
+
+    // 2. Construimos la lista de items mapeada usando estrictamente el tipo InvoiceItem
+    const items: InvoiceItem[] = state.selectedProducts.map(item => ({
+      product_id: item.product.id,
+      product_name: item.product.name,
+      unit_price: item.product.price,
+      quantity: item.quantity,
+      subtotal: item.product.price * item.quantity
+    }));
+
+    // 3. Tipamos el objeto completo como "Invoice" garantizando robustez de datos
+    const invoicePayload: Invoice = {
+      total,
+      payment_method: state.paymentMethod,
+      cash_amount: cashAmount,
+      transfer_amount: transferAmount,
+      cash_received: cashReceived,
+      items
+    };
+
+    try {
+      // Bloquear botón para evitar doble envío accidental (Double Click / Enter Key repetido)
+      const btnFacturar = this.containerElement?.querySelector('#btn-facturar') as HTMLButtonElement;
+      if (btnFacturar) {
+        btnFacturar.disabled = true;
+      }
+
+      console.log("[Checkout] Despachando factura a base de datos...", invoicePayload);
+      
+      // Llamamos al canal de nuestra API de Electron expuesta
+      const result = await window.paletteAPI.Invoice.createInvoice(invoicePayload);
+
+      if (result.success) {
+        alert(`¡Factura ${result.invoiceNumber} guardada con éxito!`);
+
+        // 4. Limpiamos el carrito y restablecemos el estado de cobro en el Store de forma reactiva
+        storeGlobal.update({
+          selectedProducts: [],
+          amountCash: 0,
+          amountCard: 0,
+          paymentMethod: 'efectivo'
+        });
+      }
+
+    } catch (error: any) {
+      console.error("Error al emitir factura:", error);
+      alert(`Error al guardar la factura: ${error.message || error}`);
+      
+      // Reactivamos el botón visualmente basándonos en el estado actual si algo falla
+      this.updateCheckoutView(storeGlobal.get());
+    }
   };
 
   /**
@@ -239,7 +307,7 @@ export class Checkout {
       inputsContainer?.removeEventListener('input', this.handleInputPayment);
 
       const btnFacturar = this.containerElement.querySelector('#btn-facturar');
-      btnFacturar?.removeEventListener('click', this.procesarFacturacion);
+      btnFacturar?.removeEventListener('click', this.invoiceHandler);
     }
 
     // Apagar la suscripción del Store
